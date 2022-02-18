@@ -29,6 +29,11 @@ async def on_message(disc_msg):
     await info["relay_channel"].send("Message received")
 
 
+@dgg_bot.event("on_join")
+def on_dgg_join(dgg_msg):
+    print(dgg_msg)
+
+
 @dgg_bot.event("on_mention")
 def on_dgg_mention(dgg_msg):
     fwd_to_disc(dgg_msg)
@@ -36,6 +41,7 @@ def on_dgg_mention(dgg_msg):
 
 @dgg_bot.event("on_msg")
 def on_dgg_message(dgg_msg):
+    print(dgg_msg)
     fwd_to_disc(dgg_msg)
 
 
