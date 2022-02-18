@@ -1,6 +1,7 @@
 from dggbot.message import Message
 from dggbot import DGGBot
 from os import getenv
+from time import sleep
 import discord
 
 info = {}
@@ -39,3 +40,6 @@ def on_dgg_message(dgg_msg):
 
 
 discord_bot.run(getenv("DISC_AUTH"))
+while True:
+    dgg_bot.run()
+    sleep(600)
