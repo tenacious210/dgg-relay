@@ -34,7 +34,7 @@ def on_dgg_mention(dgg_msg):
     fwd_to_disc(dgg_msg)
 
 
-@dgg_bot.event("on_message")
+@dgg_bot.event("on_msg")
 def on_dgg_message(dgg_msg):
     fwd_to_disc(dgg_msg)
 
