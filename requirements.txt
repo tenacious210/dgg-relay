@@ -1,2 +1,2 @@
 dgg-bot
-pycord
+py-cord
