@@ -11,7 +11,8 @@ from discord import Option, OptionChoice
 
 discord_bot = discord.Bot()
 
-with Path(__file__).with_name("config.json").open("r") as config_file:
+config_path = Path(__file__).with_name("config.json")
+with config_path.open("r") as config_file:
     config = json.loads(config_file.read())
 
 
@@ -48,6 +49,46 @@ async def filter(
         await ctx.respond(f"Changed the filter level to '{level}'")
     else:
         await ctx.respond(f"'{level}' isn't a valid filter level")
+
+
+@discord_bot.slash_command(
+    guild_ids=[889845466915819551],
+    name="whitelist",
+    description="Modify the whitelist",
+)
+async def whitelist(
+    ctx,
+    mode: Option(
+        str,
+        "Choose add or remove mode",
+        required=True,
+        choices=(
+            OptionChoice(name="add", value="add"),
+            OptionChoice(name="remove", value="remove"),
+        ),
+    ),
+    user: Option(
+        str,
+        "The user to add/remove from the whitelist",
+        required=True,
+    ),
+):
+    if mode in ("add", "remove") and user:
+        if mode == "add":
+            config["whitelist"].append(user)
+        elif mode == "remove" and user in config["whitelist"]:
+            config["whitelist"].remove(user)
+        elif mode == "remove" and user not in config["whitelist"]:
+            await ctx.respond(f"'{user}' was not found in the whitelist.")
+            return
+        to_json = {"whitelist": config["whitelist"]}
+        with config_path.open("w") as config_file:
+            json.dump(to_json, config_file)
+        await ctx.respond(
+            f"'{user}' was {'added' if mode == 'add' else 'removed'} {'to' if mode == 'add' else 'from'} the whitelist."
+        )
+    else:
+        await ctx.respond(f"Mode was invalid or user was not entered.")
 
 
 @discord_bot.event
