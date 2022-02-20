@@ -1,5 +1,4 @@
-from dggbot.message import Message
-from dggbot import DGGBot
+from dggbot import DGGBot, Message
 from os import getenv
 from time import sleep
 from threading import Thread
@@ -16,7 +15,8 @@ with config_path.open("r") as config_file:
     config = json.loads(config_file.read())
 
 
-dgg_bot = DGGBot(auth_token=getenv("DGG_AUTH"), username="TenaReturns", owner="Fritz")
+dgg_bot = DGGBot(auth_token=getenv("DGG_AUTH"),
+                 username="TenaReturns", owner="Fritz")
 dgg_bot.filter_level = "whitelist"
 dgg_thread = Thread(target=dgg_bot.run)
 
@@ -112,7 +112,7 @@ async def on_message(disc_msg):
 # Always forward messages if they mention the bot
 @dgg_bot.event("on_mention")
 def on_dgg_mention(dgg_msg):
-    relay_send(f"(M) {dgg_msg.nick} said: {dgg_msg.data}")
+    relay_send(f"**(M) {dgg_msg.nick}:**: {dgg_msg.data}")
 
 
 @dgg_bot.event("on_msg")
@@ -120,9 +120,9 @@ def on_dgg_message(dgg_msg):
     if dgg_bot.filter_level == "mention" or "tenareturns" in dgg_msg.data.lower():
         return
     elif dgg_bot.filter_level == "whitelist" and dgg_msg.nick in config["whitelist"]:
-        relay_send(f"(WL) {dgg_msg.nick} said: {dgg_msg.data}")
+        relay_send(f"**(WL) {dgg_msg.nick}:**: {dgg_msg.data}")
     elif dgg_bot.filter_level == "off":
-        relay_send(f"(NF) {dgg_msg.nick} said: {dgg_msg.data}")
+        relay_send(f"**(NF) {dgg_msg.nick}:**: {dgg_msg.data}")
 
 
 discord_bot.run(getenv("DISC_AUTH"))
