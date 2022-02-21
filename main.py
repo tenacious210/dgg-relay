@@ -21,6 +21,10 @@ dgg_bot.whitelist = config["whitelist"]
 dgg_bot.emotes = config["emotes"]
 dgg_thread = Thread(target=dgg_bot.run)
 
+def save_config():
+    to_json = {"whitelist": dgg_bot.whitelist, "emotes": dgg_bot.emotes}
+    with config_path.open("w") as config_file:
+        json.dump(to_json, config_file)    
 
 def relay_send(payload: str):
     discord_bot.disc_loop.create_task(discord_bot.relay_channel.send(payload))
@@ -40,15 +44,14 @@ def dgg_to_disc(msg: str):
 async def addemote(
     ctx,
     dgg_version: Option(str, "The emote as used in DGG"),
-    discord_version: Option(Emoji, "The emote as used in Discord")
+    discord_version: Option(str, "The emote as used in Discord")
 ):
-    if (not dgg_version) or not isinstance(discord_version, Emoji):
+    if (not dgg_version) or (not discord_version):
         ctx.respond("One of the parameters was invalid.")
         return
     dgg_bot.emotes[dgg_version] = discord_version
-    to_json = {"whitelist": dgg_bot.whitelist, "emotes": dgg_bot.emotes}
-    with config_path.open("w") as config_file:
-        json.dump(to_json, config_file)
+    save_config()
+    await ctx.respond(f'{dgg_version} : {discord_version}', ephemeral=True)
 
 
 @discord_bot.slash_command(
@@ -102,18 +105,15 @@ async def whitelist(
     if mode in ("add", "remove") and user:
         if mode == "add":
             dgg_bot.whitelist.append(user)
+            response = f'"{user}" was added to the whitelist.'
         elif mode == "remove" and user in dgg_bot.whitelist:
             dgg_bot.whitelist.remove(user)
+            response = f'"{user}" was removed from the whitelist.'
         elif mode == "remove" and user not in dgg_bot.whitelist:
             await ctx.respond(f"'{user}' was not found in the whitelist.")
             return
-        to_json = {"whitelist": dgg_bot.whitelist,
-                   "emotes": dgg_bot.emotes}
-        with config_path.open("w") as config_file:
-            json.dump(to_json, config_file)
-        await ctx.respond(
-            f"'{user}' was {'added' if mode == 'add' else 'removed'} {'to' if mode == 'add' else 'from'} the whitelist."
-        )
+        save_config()
+        await ctx.respond(response)
     else:
         await ctx.respond(f"Mode was invalid or user was not entered.")
 
