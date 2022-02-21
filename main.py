@@ -5,7 +5,7 @@ from asyncio import get_running_loop, create_task
 from pathlib import Path
 import json
 import discord
-from discord import Option, OptionChoice
+from discord import Option, OptionChoice, Emoji
 
 discord_bot = discord.Bot()
 
@@ -17,11 +17,38 @@ with config_path.open("r") as config_file:
 dgg_bot = DGGBot(auth_token=getenv("DGG_AUTH"),
                  username="TenaReturns", owner="Fritz")
 dgg_bot.filter_level = "whitelist"
+dgg_bot.whitelist = config["whitelist"]
+dgg_bot.emotes = config["emotes"]
 dgg_thread = Thread(target=dgg_bot.run)
 
 
 def relay_send(payload: str):
     discord_bot.disc_loop.create_task(discord_bot.relay_channel.send(payload))
+
+
+def dgg_to_disc(msg: str):
+    for emote in dgg_bot.emotes:
+        msg = msg.replace(emote, dgg_bot.emotes[emote])
+    return msg
+
+
+@discord_bot.slash_command(
+    guild_ids=[889845466915819551],
+    name="addemote",
+    description="Adds a phrase which gets translated from DGG emote to Discord emote",
+)
+async def addemote(
+    ctx,
+    dgg_version: Option(str, "The emote as used in DGG"),
+    discord_version: Option(Emoji, "The emote as used in Discord")
+):
+    if (not dgg_version) or not isinstance(discord_version, Emoji):
+        ctx.respond("One of the parameters was invalid.")
+        return
+    dgg_bot.emotes[dgg_version] = discord_version
+    to_json = {"whitelist": dgg_bot.whitelist, "emotes": dgg_bot.emotes}
+    with config_path.open("w") as config_file:
+        json.dump(to_json, config_file)
 
 
 @discord_bot.slash_command(
@@ -74,13 +101,14 @@ async def whitelist(
 ):
     if mode in ("add", "remove") and user:
         if mode == "add":
-            config["whitelist"].append(user)
-        elif mode == "remove" and user in config["whitelist"]:
-            config["whitelist"].remove(user)
-        elif mode == "remove" and user not in config["whitelist"]:
+            dgg_bot.whitelist.append(user)
+        elif mode == "remove" and user in dgg_bot.whitelist:
+            dgg_bot.whitelist.remove(user)
+        elif mode == "remove" and user not in dgg_bot.whitelist:
             await ctx.respond(f"'{user}' was not found in the whitelist.")
             return
-        to_json = {"whitelist": config["whitelist"]}
+        to_json = {"whitelist": dgg_bot.whitelist,
+                   "emotes": dgg_bot.emotes}
         with config_path.open("w") as config_file:
             json.dump(to_json, config_file)
         await ctx.respond(
@@ -111,17 +139,17 @@ async def on_message(disc_msg):
 # Always forward messages if they mention the bot
 @dgg_bot.event("on_mention")
 def on_dgg_mention(dgg_msg):
-    relay_send(f"**(M) {dgg_msg.nick}:** {dgg_msg.data}")
+    relay_send(f"**(M) {dgg_msg.nick}:** {dgg_to_disc(dgg_msg.data)}")
 
 
 @dgg_bot.event("on_msg")
 def on_dgg_message(dgg_msg):
     if dgg_bot.filter_level == "mention" or "tenareturns" in dgg_msg.data.lower():
         return
-    elif dgg_bot.filter_level == "whitelist" and dgg_msg.nick in config["whitelist"]:
-        relay_send(f"**(WL) {dgg_msg.nick}:** {dgg_msg.data}")
+    elif dgg_bot.filter_level == "whitelist" and dgg_msg.nick in dgg_bot.whitelist:
+        relay_send(f"**(WL) {dgg_msg.nick}:** {dgg_to_disc(dgg_msg.data)}")
     elif dgg_bot.filter_level == "off":
-        relay_send(f"**(NF) {dgg_msg.nick}:** {dgg_msg.data}")
+        relay_send(f"**(NF) {dgg_msg.nick}:** {dgg_to_disc(dgg_msg.data)}")
 
 
 discord_bot.run(getenv("DISC_AUTH"))
