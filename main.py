@@ -73,7 +73,7 @@ def save_config():
 
 def dgg_to_disc(msg: str):
     for dgg_emote, disc_emote in dgg_bot.emotes.items():
-        msg = re.sub(rf'\b{dgg_emote}\b', disc_emote, msg)
+        msg = re.sub(rf"\b{dgg_emote}\b", disc_emote, msg)
     if "nsfw" in msg:
         msg = f"||{msg}||"
     return msg
@@ -94,7 +94,7 @@ async def addemote(
         return
     dgg_bot.emotes[dgg_version] = discord_version
     save_config()
-    await ctx.respond(f'{dgg_version} : {discord_version}', ephemeral=True)
+    await ctx.respond(f"{dgg_version} : {discord_version}", ephemeral=True)
 
 
 @discord_bot.slash_command(
@@ -161,15 +161,15 @@ async def whitelist(
         save_config()
         await ctx.respond(response)
     else:
-        await ctx.respond(f'Mode was invalid or user was not entered.')
+        await ctx.respond(f"Mode was invalid or user was not entered.")
 
 
 @discord_bot.event
 async def on_ready():
     discord_bot.relay_channel = discord_bot.get_channel(944252065515962468)
-    print(f'Forwarding messages to {discord_bot.relay_channel}')
+    print(f"Forwarding messages to {discord_bot.relay_channel}")
     discord_bot.disc_loop = get_running_loop()
-    await discord_bot.relay_channel.send(f'Connecting to DGG as {dgg_bot.username}')
+    await discord_bot.relay_channel.send(f"Connecting to DGG as {dgg_bot.username}")
     dgg_thread.start()
     parse_dgg_thread.start()
 
@@ -186,13 +186,20 @@ async def on_message(disc_msg):
 @dgg_bot.event("on_msg")
 def on_dgg_message(dgg_msg):
     if dgg_msg.nick == dgg_bot.username:
-        dgg_bot.msg_queue.put(f'**(S) {dgg_msg.nick}:** {dgg_to_disc(dgg_msg.data)}')
+        prefix = "S"
     elif dgg_bot.username.lower() in dgg_msg.data.lower():
-        dgg_bot.msg_queue.put(f'**(M) {dgg_msg.nick}:** {dgg_msg.data}')
+        prefix = "M"
     elif dgg_bot.filter_level == "whitelist" and dgg_msg.nick in dgg_bot.whitelist:
-        dgg_bot.msg_queue.put(f'**(WL) {dgg_msg.nick}:** {dgg_to_disc(dgg_msg.data)}')
+        prefix = "WL"
     elif dgg_bot.filter_level == "off":
-        dgg_bot.msg_queue.put(f'**(NF) {dgg_msg.nick}:** {dgg_to_disc(dgg_msg.data)}')
+        prefix = "NF"
+    else:
+        prefix = None
+
+    if prefix:
+        dgg_bot.msg_queue.put(
+            f"**({prefix}) {dgg_msg.nick}:** {dgg_to_disc(dgg_msg.data)}"
+        )
 
 
 discord_bot.run(getenv("DISC_AUTH"))
