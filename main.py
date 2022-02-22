@@ -56,7 +56,9 @@ dgg_bot = CustomBot(
 
 def parse_dgg_queue():
     while True:
-        relay_send(dgg_bot.msg_queue.get(block=True))
+        discord_bot.disc_loop.create_task(
+            discord_bot.relay_channel.send(dgg_bot.msg_queue.get())
+        )
 
 
 dgg_thread = Thread(target=dgg_bot.run_forever)
@@ -67,10 +69,6 @@ def save_config():
     to_json = {"whitelist": dgg_bot.whitelist, "emotes": dgg_bot.emotes}
     with config_path.open("w") as config_file:
         json.dump(to_json, config_file)
-
-
-def relay_send(payload: str):
-    discord_bot.disc_loop.create_task(discord_bot.relay_channel.send(payload))
 
 
 def dgg_to_disc(msg: str):
@@ -120,9 +118,12 @@ async def filter(
 ):
     if level in ("mention", "whitelist", "off"):
         dgg_bot.filter_level = level
-        await ctx.respond(f"Changed the filter level to '{level}'")
+        response = f"Changed the filter level to '{level}'"
+    elif level == None:
+        response = f"The filter level is '{dgg_bot.filter_level}'"
     else:
-        await ctx.respond(f"'{level}' isn't a valid filter level")
+        response = f"'{level}' isn't a valid filter level"
+    await ctx.respond(response)
 
 
 @discord_bot.slash_command(
@@ -182,18 +183,12 @@ async def on_message(disc_msg):
     dgg_bot.send(disc_msg.content)
 
 
-# Always forward messages if they mention the bot
-@dgg_bot.event("on_mention")
-def on_dgg_mention(dgg_msg):
-    dgg_bot.msg_queue.put(f"**(M) {dgg_msg.nick}:** {dgg_msg.data}")
-
-
 @dgg_bot.event("on_msg")
 def on_dgg_message(dgg_msg):
-    if dgg_bot.filter_level == "mention" or dgg_bot.username in dgg_msg.data.lower():
-        return
-    elif dgg_msg.nick == dgg_bot.username:
+    if dgg_msg.nick == dgg_bot.username:
         dgg_bot.msg_queue.put(f"**(S) {dgg_msg.nick}:** {dgg_to_disc(dgg_msg.data)}")
+    elif dgg_bot.username.lower() in dgg_msg.data.lower():
+        dgg_bot.msg_queue.put(f"**(M) {dgg_msg.nick}:** {dgg_msg.data}")
     elif dgg_bot.filter_level == "whitelist" and dgg_msg.nick in dgg_bot.whitelist:
         dgg_bot.msg_queue.put(f"**(WL) {dgg_msg.nick}:** {dgg_to_disc(dgg_msg.data)}")
     elif dgg_bot.filter_level == "off":
