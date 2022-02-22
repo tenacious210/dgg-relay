@@ -3,9 +3,44 @@ from os import getenv
 from threading import Thread
 from asyncio import get_running_loop, create_task
 from pathlib import Path
+from queue import Queue
+from discord import Option, OptionChoice, Emoji
+from time import sleep
+import logging
 import json
 import discord
-from discord import Option, OptionChoice, Emoji
+import re
+
+
+class CustomBot(DGGBot):
+    def __init__(
+        self,
+        auth_token,
+        emotes,
+        whitelist,
+        filter_level="whitelist",
+        username="TenaReturns",
+        owner="tena",
+        prefix="!",
+    ):
+        super().__init__(
+            auth_token=auth_token, username=username, prefix=prefix, owner=owner
+        )
+        self.username = username
+        self.msg_queue = Queue()
+        self.emotes = emotes
+        self.whitelist = whitelist
+        self.filter_level = filter_level
+
+    def _on_error(self, ws, error):
+        logging.error(error)
+        dgg_bot.msg_queue.put(error)
+
+    def run_forever(self):
+        while True:
+            self.run()
+            sleep(5)
+
 
 discord_bot = discord.Bot()
 
@@ -14,25 +49,35 @@ with config_path.open("r") as config_file:
     config = json.loads(config_file.read())
 
 
-dgg_bot = DGGBot(auth_token=getenv("DGG_AUTH"),
-                 username="TenaReturns", owner="Fritz")
-dgg_bot.filter_level = "whitelist"
-dgg_bot.whitelist = config["whitelist"]
-dgg_bot.emotes = config["emotes"]
-dgg_thread = Thread(target=dgg_bot.run)
+dgg_bot = CustomBot(
+    getenv("DGG_AUTH"), emotes=config["emotes"], whitelist=config["whitelist"]
+)
+
+
+def parse_dgg_queue():
+    while True:
+        relay_send(dgg_bot.msg_queue.get(block=True))
+
+
+dgg_thread = Thread(target=dgg_bot.run_forever)
+parse_dgg_thread = Thread(target=parse_dgg_queue)
+
 
 def save_config():
     to_json = {"whitelist": dgg_bot.whitelist, "emotes": dgg_bot.emotes}
     with config_path.open("w") as config_file:
-        json.dump(to_json, config_file)    
+        json.dump(to_json, config_file)
+
 
 def relay_send(payload: str):
     discord_bot.disc_loop.create_task(discord_bot.relay_channel.send(payload))
 
 
 def dgg_to_disc(msg: str):
-    for emote in dgg_bot.emotes:
-        msg = msg.replace(emote, dgg_bot.emotes[emote])
+    for dgg_emote, disc_emote in dgg_bot.emotes.items():
+        msg = re.sub(rf"\b{dgg_emote}\b", disc_emote, msg)
+    if "nsfw" in msg:
+        msg = f"||{msg}||"
     return msg
 
 
@@ -44,14 +89,14 @@ def dgg_to_disc(msg: str):
 async def addemote(
     ctx,
     dgg_version: Option(str, "The emote as used in DGG"),
-    discord_version: Option(str, "The emote as used in Discord")
+    discord_version: Option(str, "The emote as used in Discord"),
 ):
     if (not dgg_version) or (not discord_version):
         ctx.respond("One of the parameters was invalid.")
         return
     dgg_bot.emotes[dgg_version] = discord_version
     save_config()
-    await ctx.respond(f'{dgg_version} : {discord_version}', ephemeral=True)
+    await ctx.respond(f"{dgg_version} : {discord_version}", ephemeral=True)
 
 
 @discord_bot.slash_command(
@@ -125,6 +170,7 @@ async def on_ready():
     discord_bot.disc_loop = get_running_loop()
     await discord_bot.relay_channel.send(f"Connecting to DGG as {dgg_bot.username}")
     dgg_thread.start()
+    parse_dgg_thread.start()
 
 
 @discord_bot.event
@@ -139,17 +185,19 @@ async def on_message(disc_msg):
 # Always forward messages if they mention the bot
 @dgg_bot.event("on_mention")
 def on_dgg_mention(dgg_msg):
-    relay_send(f"**(M) {dgg_msg.nick}:** {dgg_to_disc(dgg_msg.data)}")
+    dgg_bot.msg_queue.put(f"**(M) {dgg_msg.nick}:** {dgg_msg.data}")
 
 
 @dgg_bot.event("on_msg")
 def on_dgg_message(dgg_msg):
-    if dgg_bot.filter_level == "mention" or "tenareturns" in dgg_msg.data.lower():
+    if dgg_bot.filter_level == "mention" or dgg_bot.username in dgg_msg.data.lower():
         return
+    elif dgg_msg.nick == dgg_bot.username:
+        dgg_bot.msg_queue.put(f"**(S) {dgg_msg.nick}:** {dgg_to_disc(dgg_msg.data)}")
     elif dgg_bot.filter_level == "whitelist" and dgg_msg.nick in dgg_bot.whitelist:
-        relay_send(f"**(WL) {dgg_msg.nick}:** {dgg_to_disc(dgg_msg.data)}")
+        dgg_bot.msg_queue.put(f"**(WL) {dgg_msg.nick}:** {dgg_to_disc(dgg_msg.data)}")
     elif dgg_bot.filter_level == "off":
-        relay_send(f"**(NF) {dgg_msg.nick}:** {dgg_to_disc(dgg_msg.data)}")
+        dgg_bot.msg_queue.put(f"**(NF) {dgg_msg.nick}:** {dgg_to_disc(dgg_msg.data)}")
 
 
 discord_bot.run(getenv("DISC_AUTH"))
