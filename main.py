@@ -19,8 +19,8 @@ class CustomBot(DGGBot):
         emotes,
         whitelist,
         filter_level="whitelist",
-        username="TenaReturns",
-        owner="tena",
+        username="tena_",
+        owner="tena_",
         prefix="!",
     ):
         super().__init__(
