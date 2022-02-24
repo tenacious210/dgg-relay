@@ -68,7 +68,7 @@ parse_dgg_thread = Thread(target=parse_dgg_queue)
 def save_config():
     to_json = {"whitelist": dgg_bot.whitelist, "emotes": dgg_bot.emotes}
     with config_path.open("w") as config_file:
-        json.dump(to_json, config_file)
+        json.dump(to_json, config_file, indent=2)
 
 
 def dgg_to_disc(msg: str):
@@ -188,7 +188,7 @@ def on_dgg_message(dgg_msg):
     if dgg_msg.nick == dgg_bot.username:
         prefix = "S"
     elif dgg_bot.username.lower() in dgg_msg.data.lower():
-        prefix = "M"
+        prefix = "@tena#5751"
     elif dgg_bot.filter_level == "whitelist" and dgg_msg.nick in dgg_bot.whitelist:
         prefix = "WL"
     elif dgg_bot.filter_level == "off":
