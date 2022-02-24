@@ -74,6 +74,7 @@ def save_config():
 def dgg_to_disc(msg: str):
     for dgg_emote, disc_emote in dgg_bot.emotes.items():
         msg = re.sub(rf"\b{dgg_emote}\b", disc_emote, msg)
+    msg = re.sub("[*_`]", r"\\\g<0>", msg)
     if "nsfw" in msg:
         msg = f"||{msg}||"
     return msg
@@ -188,7 +189,7 @@ def on_dgg_message(dgg_msg):
     if dgg_msg.nick == dgg_bot.username:
         prefix = "S"
     elif dgg_bot.username.lower() in dgg_msg.data.lower():
-        prefix = "@tena#5751"
+        prefix = "M"
     elif dgg_bot.filter_level == "whitelist" and dgg_msg.nick in dgg_bot.whitelist:
         prefix = "WL"
     elif dgg_bot.filter_level == "off":
