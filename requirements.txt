@@ -1,2 +1,2 @@
 dgg-bot
-py-cord
+py-cord --pre
