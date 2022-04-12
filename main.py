@@ -1,5 +1,5 @@
 from discord import Option, OptionChoice, Bot, Intents
-from discord.ext.commands import Context, has_permissions, has_role
+from discord.ext.commands import Context, has_role
 from dggbot import DGGBot, Message
 from os import getenv
 from threading import Thread
@@ -69,11 +69,7 @@ parse_dgg_queue_thread = Thread(target=parse_dgg_queue)
 
 
 @has_role("dgg-relay-mod")
-@discord_bot.slash_command(
-    guild_ids=[guild.id for guild in discord_bot.guilds],
-    name="addemote",
-    description="Add or modify emotes",
-)
+@discord_bot.slash_command(name="addemote", description="Add or modify emotes")
 async def addemote(
     ctx: Context,
     dgg_version: Option(str, "The emote as used in DGG"),
@@ -84,12 +80,11 @@ async def addemote(
         return
     emotes[dgg_version] = discord_version
     save_config()
-    await ctx.respond(f"Translating {dgg_version} to {discord_version}", ephemeral=True)
+    await ctx.respond(f"Translating {dgg_version} to {discord_version}")
 
 
 @has_role("dgg-relay-mod")
 @discord_bot.slash_command(
-    guild_ids=[guild.id for guild in discord_bot.guilds],
     name="relay",
     description="Add or remove a DGG user whose messages get forwarded to this server",
 )
@@ -111,21 +106,27 @@ async def relay(
     ),
 ):
     if mode in ("add", "remove") and dgg_username:
-        guild = ctx.guild.id
+        relay_channel = None
+        for channel in ctx.guild.channels:
+            if channel.name == "dgg-relay":
+                relay_channel = channel.id
+        if not relay_channel:
+            await ctx.respond("Couldn't find this server's dgg-relay channel.")
+            return
         if mode == "add":
-            if not nicks[dgg_username]:
+            if dgg_username not in nicks:
                 nicks[dgg_username] = []
-            if guild not in nicks[dgg_username]:
-                nicks[dgg_username].append(guild)
+            if relay_channel not in nicks[dgg_username]:
+                nicks[dgg_username].append(relay_channel)
                 response = (
                     f"Messages from '{dgg_username}' will be relayed to this server."
                 )
             else:
                 response = f"Messages from '{dgg_username}' are already being relayed to this server."
-        elif mode == "remove" and guild in nicks[dgg_username]:
-            nicks[dgg_username].remove(dgg_username)
+        elif mode == "remove" and relay_channel in nicks[dgg_username]:
+            nicks[dgg_username].remove(relay_channel)
             response = f"No longer relaying messages from '{dgg_username}'"
-        elif mode == "remove" and guild not in nicks[dgg_username]:
+        elif mode == "remove" and relay_channel not in nicks[dgg_username]:
             await ctx.respond(
                 f"Messages from {dgg_username} aren't being relayed to this server."
             )
@@ -136,6 +137,63 @@ async def relay(
         await ctx.respond(response)
     else:
         await ctx.respond(f"Mode was invalid or user was not entered.")
+
+
+@discord_bot.slash_command(
+    name="mention",
+    description="Add a phrase (usually a username) which will be searched for and DMed to you if it's used in DGG",
+)
+async def mention(
+    ctx: Context,
+    mode: Option(
+        str,
+        "Choose add or remove mode",
+        required=True,
+        choices=(
+            OptionChoice(name="add", value="add"),
+            OptionChoice(name="remove", value="remove"),
+        ),
+    ),
+    phrase: Option(
+        str,
+        "The phrase to search for",
+        required=True,
+    ),
+):
+    if mode in ("add", "remove") and phrase:
+        disc_user = ctx.author.id
+        if mode == "add":
+            if phrase not in phrases:
+                phrases[phrase] = []
+            if disc_user not in phrases[phrase]:
+                phrases[phrase].append(disc_user)
+                response = f"Mentions of '{phrase}' will be messaged to you."
+            else:
+                response = f"Mentions of '{phrase}' are already being messaged to you."
+        elif mode == "remove" and disc_user in phrases[phrase]:
+            phrases[phrase].remove(disc_user)
+            response = f"No longer relaying mentions of '{phrase}'"
+        elif mode == "remove" and disc_user not in phrases[phrase]:
+            await ctx.respond(
+                f"Error: Mentions of {phrase} aren't being messaged to you."
+            )
+            return
+        if not phrases[phrase]:
+            phrases.pop(phrase)
+        save_config()
+        await ctx.respond(response, ephemeral=True)
+    else:
+        await ctx.respond(f"Mode was invalid or user was not entered.", ephemeral=True)
+
+
+# @mention.error
+# async def onmention_error(ctx, error):
+#     await ctx.send(f"Error: {error}")
+
+
+@relay.error
+async def relay_error(ctx, error):
+    await ctx.send(f"Error: {error}")
 
 
 @discord_bot.event
