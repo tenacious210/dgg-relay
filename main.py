@@ -1,6 +1,6 @@
-from discord import Option, OptionChoice, Bot
-from dggbot import DGGBot, Message
+from discord import Option, OptionChoice, Bot, Intents
 from discord.ext.commands import Context, has_permissions, has_role
+from dggbot import DGGBot, Message
 from os import getenv
 from threading import Thread
 from asyncio import get_running_loop
@@ -10,8 +10,10 @@ from time import sleep
 import json
 import re
 
+intents = Intents.default()
+intents.members = True
 
-discord_bot = Bot()
+discord_bot = Bot(intents=intents)
 dgg_bot = DGGBot(None)
 dgg_msg_queue = Queue()
 
@@ -22,19 +24,14 @@ with config_path.open("r") as config_file:
 nicks, phrases, emotes = config["nicks"], config["phrases"], config["emotes"]
 
 
-def run_dgg_bot():
-    while True:
-        dgg_bot.run()
-        sleep(5)
-
-
-def parse_dgg_queue():
-    while True:
-        sleep(5)
-
-
-dgg_thread = Thread(target=run_dgg_bot)
-parse_dgg_queue_thread = Thread(target=parse_dgg_queue)
+def dgg_to_disc(msg: Message):
+    data = msg.data
+    for dgg_emote, disc_emote in emotes.items():
+        data = re.sub(rf"\b{dgg_emote}\b", disc_emote, data)
+    data = re.sub("[*_`]", r"\\\g<0>", data)
+    if "nsfw" in data:
+        data = f"NSFW ||{data}||"
+    return f"**{msg.nick}:** {data}"
 
 
 def save_config():
@@ -43,21 +40,40 @@ def save_config():
         json.dump(to_json, config_file, indent=2)
 
 
-def dgg_to_disc(msg: Message):
-    for dgg_emote, disc_emote in emotes.items():
-        data = re.sub(rf"\b{dgg_emote}\b", disc_emote, msg.data)
-    data = re.sub("[*_`]", r"\\\g<0>", data)
-    if "nsfw" in data:
-        data = f"NSFW ||{data}||"
-    return f"{msg.nick}: {data}"
+def run_dgg_bot():
+    while True:
+        dgg_bot.run()
+        sleep(5)
 
 
+def parse_dgg_queue():
+    while True:
+        msg: Message = dgg_msg_queue.get()
+        if msg.nick in nicks.keys():
+            for channel_id in nicks[msg.nick]:
+                if channel := discord_bot.get_channel(channel_id):
+                    discord_bot.disc_loop.create_task(channel.send(dgg_to_disc(msg)))
+                else:
+                    print(f"Channel {channel_id} wasn't found")
+        for phrase in phrases.keys():
+            if re.search(rf"\b{phrase}\b", msg.data):
+                for user_id in phrases[phrase]:
+                    if user := discord_bot.get_user(user_id):
+                        discord_bot.disc_loop.create_task(user.send(dgg_to_disc(msg)))
+                    else:
+                        print(f"User {user_id} wasn't found")
+
+
+dgg_thread = Thread(target=run_dgg_bot)
+parse_dgg_queue_thread = Thread(target=parse_dgg_queue)
+
+
+@has_role("dgg-relay-mod")
 @discord_bot.slash_command(
-    guild_ids=discord_bot.guilds,
+    guild_ids=[guild.id for guild in discord_bot.guilds],
     name="addemote",
     description="Add or modify emotes",
 )
-@has_role("dgg-relay-mod")
 async def addemote(
     ctx: Context,
     dgg_version: Option(str, "The emote as used in DGG"),
@@ -71,12 +87,12 @@ async def addemote(
     await ctx.respond(f"Translating {dgg_version} to {discord_version}", ephemeral=True)
 
 
+@has_role("dgg-relay-mod")
 @discord_bot.slash_command(
-    guild_ids=discord_bot.guilds,
+    guild_ids=[guild.id for guild in discord_bot.guilds],
     name="relay",
     description="Add or remove a DGG user whose messages get forwarded to this server",
 )
-@has_role("dgg-relay-mod")
 async def relay(
     ctx: Context,
     mode: Option(
@@ -124,18 +140,10 @@ async def relay(
 
 @discord_bot.event
 async def on_ready():
-    discord_bot.relay_channels = []
-    for guild in discord_bot.guilds:
-        for channel in guild.channels:
-            print(channel.name)
-            if channel.name == "dgg-relay" and channel.nsfw:
-                discord_bot.relay_channels.append(channel)
-    print(f"Forwarding messages to {discord_bot.relay_channels}")
     discord_bot.disc_loop = get_running_loop()
-    for channel in discord_bot.relay_channels:
-        await channel.send(f"Connecting to DGG")
     dgg_thread.start()
     parse_dgg_queue_thread.start()
+    print("Starting")
 
 
 @dgg_bot.event("on_msg")
