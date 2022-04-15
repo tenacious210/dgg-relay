@@ -1,6 +1,6 @@
 from discord import Option, OptionChoice, Bot, Intents
 from discord.ext.commands import Context, has_role
-from dggbot import DGGBot, Message
+from dggbot import DGGChat, Message
 from os import getenv
 from threading import Thread
 from asyncio import get_running_loop
@@ -14,7 +14,7 @@ intents = Intents.default()
 intents.members = True
 
 discord_bot = Bot(intents=intents)
-dgg_bot = DGGBot(None)
+dgg_bot = DGGChat()
 dgg_msg_queue = Queue()
 
 config_path = Path(__file__).with_name("config.json")
@@ -28,9 +28,9 @@ def dgg_to_disc(msg: Message):
     data = msg.data
     for dgg_emote, disc_emote in emotes.items():
         data = re.sub(rf"\b{dgg_emote}\b", disc_emote, data)
-    data = re.sub("[*_`]", r"\\\g<0>", data)
-    if "nsfw" in data:
-        data = f"NSFW ||{data}||"
+    data = re.sub("[*_`|]", r"\\\g<0>", data)
+    if "nsfw" in data.lower():
+        data = f"||{data}||"
     return f"**{msg.nick}:** {data}"
 
 
@@ -49,14 +49,24 @@ def run_dgg_bot():
 def parse_dgg_queue():
     while True:
         msg: Message = dgg_msg_queue.get()
-        if msg.nick in nicks.keys():
+        if msg.nick.lower() in [nick.lower() for nick in nicks.keys()]:
             for channel_id in nicks[msg.nick]:
                 if channel := discord_bot.get_channel(channel_id):
-                    discord_bot.disc_loop.create_task(channel.send(dgg_to_disc(msg)))
+                    if "nsfw" not in msg.data.lower():
+                        discord_bot.disc_loop.create_task(
+                            channel.send(dgg_to_disc(msg))
+                        )
+                    else:
+                        discord_bot.disc_loop.create_task(
+                            channel.send(
+                                dgg_to_disc(f"**{msg.nick}:** _Censored for nsfw tag_")
+                            )
+                        )
                 else:
                     print(f"Channel {channel_id} wasn't found")
         for phrase in phrases.keys():
-            if re.search(rf"\b{phrase}\b", msg.data):
+            lower_phrase = phrase.lower()
+            if re.search(rf"\b{lower_phrase}\b", msg.data.lower()):
                 for user_id in phrases[phrase]:
                     if user := discord_bot.get_user(user_id):
                         discord_bot.disc_loop.create_task(user.send(dgg_to_disc(msg)))
@@ -75,12 +85,17 @@ async def addemote(
     dgg_version: Option(str, "The emote as used in DGG"),
     discord_version: Option(str, "The emote as used in Discord"),
 ):
-    if (not dgg_version) or (not discord_version):
-        ctx.respond("One of the parameters was invalid.")
-        return
-    emotes[dgg_version] = discord_version
-    save_config()
-    await ctx.respond(f"Translating {dgg_version} to {discord_version}")
+    if ctx.guild.id == 889845466915819551:
+        if (not dgg_version) or (not discord_version):
+            ctx.respond("One of the parameters was invalid.")
+            return
+        emotes[dgg_version] = discord_version
+        save_config()
+        await ctx.respond(f"Translating {dgg_version} to {discord_version}")
+    else:
+        ctx.respond(
+            "Please contact tena#5751 to modify emote translations", ephemeral=True
+        )
 
 
 @has_role("dgg-relay-mod")
@@ -141,7 +156,7 @@ async def relay(
 
 @discord_bot.slash_command(
     name="mention",
-    description="Add a phrase (usually a username) which will be searched for and DMed to you if it's used in DGG",
+    description="Add a phrase (usually a username) which will be searched for and messaged to you if it's used in DGG",
 )
 async def mention(
     ctx: Context,
@@ -175,7 +190,8 @@ async def mention(
             response = f"No longer relaying mentions of '{phrase}'"
         elif mode == "remove" and disc_user not in phrases[phrase]:
             await ctx.respond(
-                f"Error: Mentions of {phrase} aren't being messaged to you."
+                f"You can't remove a phrase that isn't being forwarded to you.",
+                ephemeral=True,
             )
             return
         if not phrases[phrase]:
@@ -183,12 +199,7 @@ async def mention(
         save_config()
         await ctx.respond(response, ephemeral=True)
     else:
-        await ctx.respond(f"Mode was invalid or user was not entered.", ephemeral=True)
-
-
-# @mention.error
-# async def onmention_error(ctx, error):
-#     await ctx.send(f"Error: {error}")
+        await ctx.respond(f"Mode or phrase was invalid.", ephemeral=True)
 
 
 @relay.error
