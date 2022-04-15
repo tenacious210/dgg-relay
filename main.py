@@ -91,7 +91,7 @@ async def addemote(
         save_config()
         await ctx.respond(f"Translating {dgg_version} to {discord_version}")
     else:
-        ctx.respond(
+        await ctx.respond(
             "Please contact tena#5751 to modify emote translations", ephemeral=True
         )
 
