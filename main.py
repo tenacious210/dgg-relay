@@ -58,9 +58,7 @@ def parse_dgg_queue():
                         )
                     else:
                         discord_bot.disc_loop.create_task(
-                            channel.send(
-                                dgg_to_disc(f"**{msg.nick}:** _Censored for nsfw tag_")
-                            )
+                            channel.send(f"**{msg.nick}:** _Censored for nsfw tag_")
                         )
                 else:
                     print(f"Channel {channel_id} wasn't found")
