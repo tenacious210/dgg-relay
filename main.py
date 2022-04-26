@@ -29,9 +29,10 @@ def dgg_to_disc(msg: Message):
     for dgg_emote, disc_emote in emotes.items():
         data = re.sub(rf"\b{dgg_emote}\b", disc_emote, data)
     data = re.sub("[*_`|]", r"\\\g<0>", data)
-    if "nsfw" in data.lower():
+    nick = re.sub("[*_`|]", r"\\\g<0>", msg.nick)
+    if any([tag in data.lower() for tag in ("nsfw", "nsfl")]):
         data = f"||{data}||"
-    return f"**{msg.nick}:** {data}"
+    return f"**{nick}:** {data}"
 
 
 def save_config():
@@ -52,7 +53,7 @@ def parse_dgg_queue():
         if msg.nick.lower() in [nick.lower() for nick in nicks.keys()]:
             for channel_id in nicks[msg.nick]:
                 if channel := discord_bot.get_channel(channel_id):
-                    if "nsfw" not in msg.data.lower():
+                    if any([tag in msg.data.lower() for tag in ("nsfw", "nsfl")]):
                         discord_bot.disc_loop.create_task(
                             channel.send(dgg_to_disc(msg))
                         )
