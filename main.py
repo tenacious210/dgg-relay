@@ -313,7 +313,7 @@ async def mentions(
             await ctx.respond(response, ephemeral=True)
             sleep(0.5)
     else:
-        await ctx.respond(f"No recent messages by '{user}'", ephemeral=True)
+        await ctx.respond(f"No recent mentions of '{user}'", ephemeral=True)
 
 
 @relay.error
