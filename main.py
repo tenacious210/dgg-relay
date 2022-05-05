@@ -22,6 +22,7 @@ with config_path.open("r") as config_file:
     config = json.loads(config_file.read())
 
 nicks, phrases, emotes = config["nicks"], config["phrases"], config["emotes"]
+modes = {int(k): v for k, v in config["modes"].items()}
 
 
 def dgg_to_disc(msg: Message):
@@ -36,7 +37,12 @@ def dgg_to_disc(msg: Message):
 
 
 def save_config():
-    to_json = {"nicks": nicks, "phrases": phrases, "emotes": emotes}
+    to_json = {
+        "nicks": nicks,
+        "phrases": phrases,
+        "modes": {str(k): v for k, v in modes.items()},
+        "emotes": emotes,
+    }
     with config_path.open("w") as config_file:
         json.dump(to_json, config_file, indent=2)
 
@@ -70,7 +76,14 @@ def parse_dgg_queue():
             if re.search(rf"\b{lower_phrase}\b", msg.data.lower()):
                 for user_id in phrases[phrase]:
                     if user := discord_bot.get_user(user_id):
-                        discord_bot.disc_loop.create_task(user.send(dgg_to_disc(msg)))
+                        if (
+                            modes[user_id] == "auto"
+                            and lower_phrase not in dgg_bot.users.keys()
+                            or modes[user_id] == "on"
+                        ):
+                            discord_bot.disc_loop.create_task(
+                                user.send(dgg_to_disc(msg))
+                            )
                     else:
                         print(f"User {user_id} wasn't found")
 
@@ -178,6 +191,8 @@ async def mention(
 ):
     if mode in ("add", "remove") and phrase:
         disc_user = ctx.author.id
+        if disc_user not in modes.keys():
+            modes[disc_user] = "auto"
         if mode == "add":
             if phrase not in phrases:
                 phrases[phrase] = []
@@ -201,6 +216,36 @@ async def mention(
         await ctx.respond(response, ephemeral=True)
     else:
         await ctx.respond(f"Mode or phrase was invalid.", ephemeral=True)
+
+
+@discord_bot.slash_command(
+    name="setmode",
+    description="Enable or disable mentions forwarded through DMs. Default is auto (detects chat presence).",
+)
+async def setmode(
+    ctx: Context,
+    mode: Option(
+        str,
+        "Select a mode",
+        choices=(
+            OptionChoice(name="on", value="on"),
+            OptionChoice(name="off", value="off"),
+            OptionChoice(name="auto", value="auto"),
+        ),
+    ),
+):
+    if mode in ("on", "off", "auto"):
+        modes[ctx.author.id] = mode
+        save_config()
+        await ctx.respond(f"Mention mode set to {mode}", ephemeral=True)
+    elif mode == "":
+        if ctx.author.id not in modes.keys():
+            modes[ctx.author.id] = "auto"
+        await ctx.respond(
+            f"Your mention mode is '{modes[ctx.author.id]}", ephemeral=True
+        )
+    else:
+        await ctx.respond("Invalid parameter", ephemeral=True)
 
 
 @relay.error
