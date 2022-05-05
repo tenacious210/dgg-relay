@@ -1,2 +1,3 @@
 dgg-bot
 py-cord --pre
+requests

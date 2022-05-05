@@ -7,6 +7,7 @@ from asyncio import get_running_loop
 from pathlib import Path
 from queue import Queue
 from time import sleep
+import requests
 import json
 import re
 
@@ -25,13 +26,12 @@ nicks, phrases, emotes = config["nicks"], config["phrases"], config["emotes"]
 modes = {int(k): v for k, v in config["modes"].items()}
 
 
-def dgg_to_disc(msg: Message):
-    data = msg.data
+def dgg_to_disc(nick, data):
     for dgg_emote, disc_emote in emotes.items():
         data = re.sub(rf"\b{dgg_emote}\b", disc_emote, data)
     data = re.sub("[*_`|]", r"\\\g<0>", data)
-    nick = re.sub("[*_`|]", r"\\\g<0>", msg.nick)
-    if any([tag in msg.data.lower() for tag in ("nsfw", "nsfl")]):
+    nick = re.sub("[*_`|]", r"\\\g<0>", nick)
+    if any([tag in data.lower() for tag in ("nsfw", "nsfl")]):
         data = f"||{data}||"
     return f"**{nick}:** {data}"
 
@@ -67,7 +67,7 @@ def parse_dgg_queue():
                         )
                     else:
                         discord_bot.disc_loop.create_task(
-                            channel.send(dgg_to_disc(msg))
+                            channel.send(dgg_to_disc(msg.nick, msg.data))
                         )
                 else:
                     print(f"Channel {channel_id} wasn't found")
@@ -82,7 +82,7 @@ def parse_dgg_queue():
                             or modes[user_id] == "on"
                         ):
                             discord_bot.disc_loop.create_task(
-                                user.send(dgg_to_disc(msg))
+                                user.send(dgg_to_disc(msg.nick, msg.data))
                             )
                     else:
                         print(f"User {user_id} wasn't found")
@@ -107,9 +107,7 @@ async def addemote(
         save_config()
         await ctx.respond(f"Translating {dgg_version} to {discord_version}")
     else:
-        await ctx.respond(
-            "Please contact tena#5751 to modify emote translations", ephemeral=True
-        )
+        await ctx.respond("Please contact tena#5751 to modify emotes", ephemeral=True)
 
 
 @has_role("dgg-relay-mod")
@@ -169,10 +167,10 @@ async def relay(
 
 
 @discord_bot.slash_command(
-    name="mention",
+    name="phrase",
     description="Add a phrase (usually a username) which will be searched for and messaged to you if it's used in DGG",
 )
-async def mention(
+async def phrase(
     ctx: Context,
     mode: Option(
         str,
@@ -219,10 +217,10 @@ async def mention(
 
 
 @discord_bot.slash_command(
-    name="setmode",
+    name="phrasemode",
     description="Enable or disable mentions forwarded through DMs. Default is auto (detects chat presence).",
 )
-async def setmode(
+async def phrasemode(
     ctx: Context,
     mode: Option(
         str,
@@ -246,6 +244,76 @@ async def setmode(
         )
     else:
         await ctx.respond("Invalid parameter", ephemeral=True)
+
+
+@discord_bot.slash_command(
+    name="stalk",
+    description="Return the last couple DGG messages of a chatter. Max 100 messages",
+)
+async def stalk(
+    ctx: Context,
+    user: Option(
+        str,
+        "The username to stalk",
+        required=True,
+    ),
+    amount: Option(
+        int, "The amount of messages to return", min_value=1, max_value=100, default=3
+    ),
+):
+    if messages_json := requests.get(
+        f"https://polecat.me/api/stalk/{user}?size={amount}"
+    ).json():
+        responses = []
+        response = ""
+        for message in messages_json:
+            line = f'{dgg_to_disc(message["nick"], message["text"])}\n'
+            if len(response) + len(line) <= 2000:
+                response += line
+            else:
+                responses.append(response)
+                response = line
+        responses.append(response)
+        for response in responses:
+            await ctx.respond(response, ephemeral=True)
+            sleep(0.5)
+    else:
+        await ctx.respond(f"No recent messages by '{user}'", ephemeral=True)
+
+
+@discord_bot.slash_command(
+    name="mentions",
+    description="Return the last couple mentions of a DGG chatter. Max 100 messages",
+)
+async def mentions(
+    ctx: Context,
+    user: Option(
+        str,
+        "The username to stalk",
+        required=True,
+    ),
+    amount: Option(
+        int, "The amount of messages to return", min_value=1, max_value=100, default=3
+    ),
+):
+    if messages_json := requests.get(
+        f"https://polecat.me/api/mentions/{user}?size={amount}"
+    ).json():
+        responses = []
+        response = ""
+        for message in messages_json:
+            line = f'{dgg_to_disc(message["nick"], message["text"])}\n'
+            if len(response) + len(line) <= 2000:
+                response += line
+            else:
+                responses.append(response)
+                response = line
+        responses.append(response)
+        for response in responses:
+            await ctx.respond(response, ephemeral=True)
+            sleep(0.5)
+    else:
+        await ctx.respond(f"No recent messages by '{user}'", ephemeral=True)
 
 
 @relay.error
