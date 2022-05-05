@@ -268,7 +268,7 @@ async def stalk(
         responses = []
         response = ""
         for message in messages_json:
-            time = datetime.fromtimestamp(int(message["date"] / 1000))
+            time = datetime.fromtimestamp(int(message["date"] / 1000) - 14400)
             timestamp = time.strftime("[%m-%d-%y %H:%M:%S]")
             line = f'{timestamp} {dgg_to_disc(message["nick"], message["text"])}\n'
             if len(response) + len(line) <= 2000:
@@ -305,7 +305,7 @@ async def mentions(
         responses = []
         response = ""
         for message in messages_json:
-            time = datetime.fromtimestamp(int(message["date"] / 1000))
+            time = datetime.fromtimestamp(int(message["date"] / 1000) - 14400)
             timestamp = time.strftime("[%m-%d-%y %H:%M:%S]")
             line = f'{timestamp} {dgg_to_disc(message["nick"], message["text"])}\n'
             if len(response) + len(line) <= 2000:
