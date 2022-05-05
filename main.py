@@ -1,6 +1,7 @@
 from discord import Option, OptionChoice, Bot, Intents
 from discord.ext.commands import Context, has_role
 from dggbot import DGGChat, Message
+from datetime import datetime
 from os import getenv
 from threading import Thread
 from asyncio import get_running_loop
@@ -248,7 +249,7 @@ async def phrasemode(
 
 @discord_bot.slash_command(
     name="stalk",
-    description="Return the last couple DGG messages of a chatter. Max 100 messages",
+    description="Return the last couple DGG messages of a chatter. Max 100 messages (credit to Polecat)",
 )
 async def stalk(
     ctx: Context,
@@ -267,7 +268,9 @@ async def stalk(
         responses = []
         response = ""
         for message in messages_json:
-            line = f'{dgg_to_disc(message["nick"], message["text"])}\n'
+            time = datetime.fromtimestamp(int(message["date"] / 1000))
+            timestamp = time.strftime("[%m-%d-%y %H:%M:%S]")
+            line = f'{timestamp} {dgg_to_disc(message["nick"], message["text"])}\n'
             if len(response) + len(line) <= 2000:
                 response += line
             else:
@@ -283,7 +286,7 @@ async def stalk(
 
 @discord_bot.slash_command(
     name="mentions",
-    description="Return the last couple mentions of a DGG chatter. Max 100 messages",
+    description="Return the last couple mentions of a DGG chatter. Max 100 messages (credit to Polecat)",
 )
 async def mentions(
     ctx: Context,
@@ -302,7 +305,9 @@ async def mentions(
         responses = []
         response = ""
         for message in messages_json:
-            line = f'{dgg_to_disc(message["nick"], message["text"])}\n'
+            time = datetime.fromtimestamp(int(message["date"] / 1000))
+            timestamp = time.strftime("[%m-%d-%y %H:%M:%S]")
+            line = f'{timestamp} {dgg_to_disc(message["nick"], message["text"])}\n'
             if len(response) + len(line) <= 2000:
                 response += line
             else:
