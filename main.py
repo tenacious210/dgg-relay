@@ -53,7 +53,9 @@ def parse_dgg_queue():
         if msg.nick.lower() in [nick.lower() for nick in nicks.keys()]:
             for channel_id in nicks[msg.nick]:
                 if channel := discord_bot.get_channel(channel_id):
-                    if "nsfw" in msg.data.lower() or "nsfl" in msg.data.lower():
+                    if (
+                        "nsfw" in msg.data.lower() or "nsfl" in msg.data.lower()
+                    ) and not channel.is_nsfw():
                         discord_bot.disc_loop.create_task(
                             channel.send(f"**{msg.nick}:** _Censored for nsfw tag_")
                         )
