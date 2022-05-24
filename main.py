@@ -8,6 +8,7 @@ from asyncio import get_running_loop
 from pathlib import Path
 from queue import Queue
 from time import sleep
+import tldextract
 import requests
 import json
 import re
@@ -27,14 +28,30 @@ nicks, phrases, emotes = config["nicks"], config["phrases"], config["emotes"]
 modes = {int(k): v for k, v in config["modes"].items()}
 
 
-def dgg_to_disc(nick, data):
-    for dgg_emote, disc_emote in emotes.items():
-        data = re.sub(rf"\b{dgg_emote}\b", disc_emote, data)
-    data = re.sub("[*_`|]", r"\\\g<0>", data)
-    nick = re.sub("[*_`|]", r"\\\g<0>", nick)
-    if any([tag in data.lower() for tag in ("nsfw", "nsfl")]):
-        data = f"||{data}||"
-    return f"**{nick}:** {data}"
+def dgg_to_disc(dgg_nick: str, dgg_txt: str):
+    """Converts DGG emotes/links to Discord ones"""
+    if link_search := set(re.findall(r"\b(\S+\.\S+)\b", dgg_txt)):
+        for link in link_search:
+            url = tldextract.extract(link)
+            if url.domain and url.suffix:
+                if not re.search(r"\Ahttps?://", link):
+                    dgg_txt = dgg_txt.replace(link, f"https://{link}")
+                    link = f"https://{link}"
+                dgg_txt_split = [p for p in re.split(rf"({link})", dgg_txt) if p]
+    else:
+        dgg_txt_split = [dgg_txt]
+    disc_txt = []
+    for part in dgg_txt_split:
+        if not part.startswith("http"):
+            for dgg_emote, disc_emote in emotes.items():
+                part = re.sub(rf"\b{dgg_emote}\b", disc_emote, part)
+            part = re.sub("[*_`|]", r"\\\g<0>", part)
+        disc_txt.append(part)
+    disc_txt = "".join(disc_txt)
+    dgg_nick = re.sub("[*_`|]", r"\\\g<0>", dgg_nick)
+    if any([tag in disc_txt.lower() for tag in ("nsfw", "nsfl")]):
+        disc_txt = f"||{disc_txt}||"
+    return f"**{dgg_nick}:** {disc_txt}"
 
 
 def save_config():
