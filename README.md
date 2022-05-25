@@ -23,6 +23,24 @@ Results in:
 
 ![image](https://user-images.githubusercontent.com/4806938/170265661-baada230-d176-4794-9f01-b7c9a21f8351.png)
 
+### /phrase (mode) (phrase)
+Adds a phrase (usually a username) that will be searched for and relayed to you when it's used in DGG.
+
+Example:
+
+![image](https://user-images.githubusercontent.com/4806938/170302052-42162989-dc04-4a1c-bd14-7ddd1fbcb5ac.png)
+
+Results in:
+
+![image](https://user-images.githubusercontent.com/4806938/170297420-56074012-7bfa-4917-b0e4-617c555b4748.png)
+
+### /phrasemode (mode)
+Changes when phrases from the /phrase command are relayed to you.
+Options:
+* **auto (default)**: Only relay phrases when not present in DGG. For example, when tena_ logs in to DGG chat, mentions of the phrase "tena_" will not be relayed. 
+* **on**: Always forward phrases
+* **off**: Disables forwarded phrases
+
 ## Authors
 
 tena#5751 on Discord
