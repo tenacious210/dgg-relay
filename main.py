@@ -30,6 +30,7 @@ modes = {int(k): v for k, v in config["modes"].items()}
 
 def dgg_to_disc(dgg_nick: str, dgg_txt: str):
     """Converts DGG emotes/links to Discord ones"""
+    dgg_txt_split = [dgg_txt]
     if link_search := set(re.findall(r"\b(\S+\.\S+)\b", dgg_txt)):
         for link in link_search:
             url = tldextract.extract(link)
@@ -38,8 +39,6 @@ def dgg_to_disc(dgg_nick: str, dgg_txt: str):
                     dgg_txt = dgg_txt.replace(link, f"https://{link}")
                     link = f"https://{link}"
                 dgg_txt_split = [p for p in re.split(rf"({link})", dgg_txt) if p]
-    else:
-        dgg_txt_split = [dgg_txt]
     disc_txt = []
     for part in dgg_txt_split:
         if not part.startswith("http"):
