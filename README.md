@@ -37,8 +37,8 @@ Results in:
 ### /phrasemode (mode)
 Changes when phrases from the /phrase command are relayed to you.
 Options:
-* **auto (default)**: Only relay phrases when not present in DGG. For example, when tena_ logs in to DGG chat, mentions of the phrase "tena_" will not be relayed. 
-* **on**: Always forward phrases
+* **on (default)**: Always forward phrases
+* **auto**: Only relay phrases when not present in DGG. For example, when tena_ logs in to DGG chat, mentions of the phrase "tena_" will not be relayed. 
 * **off**: Disables forwarded phrases
 
 ## Authors
