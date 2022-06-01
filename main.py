@@ -83,12 +83,8 @@ def save_config():
 
 def run_dgg_bot():
     while True:
-        try:
-            logging.info("Starting DGG bot")
-            dgg_bot.run()
-        except ConnectionResetError:
-            logging.info("Connection reset, restarting DGG bot")
-            sleep(1)
+        logging.info("Starting DGG bot")
+        dgg_bot.run()
 
 
 def parse_dgg_queue():
