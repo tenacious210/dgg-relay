@@ -15,6 +15,12 @@ import requests
 import json
 import re
 
+
+class CustomChat(DGGChat):
+    def _on_error(self, ws, error):
+        logging.error(error)
+
+
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] %(name)s:%(levelname)s: %(message)s",
@@ -24,7 +30,7 @@ intents = Intents.default()
 intents.members = True
 
 discord_bot = Bot(intents=intents)
-dgg_bot = DGGChat()
+dgg_bot = CustomChat()
 dgg_msg_queue = Queue()
 
 config_path = Path(__file__).with_name("config.json")
