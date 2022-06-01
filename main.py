@@ -39,7 +39,9 @@ def dgg_to_disc(dgg_nick: str, dgg_txt: str):
     """Converts DGG emotes/links to Discord ones"""
     logging.debug(f"dgg_to_disc input: {dgg_nick}: {dgg_txt}")
     dgg_txt_split = [dgg_txt]
-    if link_search := set(re.findall(r"\b(\S+\.\S+)\b", dgg_txt)):
+    if link_search := set(
+        re.findall(r"(?:(?:https?|ftp):\/\/)?[\w/\-?=%.]+\.[\w/\-&?=%.]+", dgg_txt)
+    ):
         for link in link_search:
             url = tldextract.extract(link)
             if url.domain and url.suffix:
