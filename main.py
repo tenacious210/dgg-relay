@@ -1,15 +1,16 @@
 from discord import Option, OptionChoice, Bot, Intents
 from discord.ext.commands import Context, has_role
 from dggbot import DGGChat, Message
-from datetime import datetime
-from os import getenv
-from threading import Thread
-from asyncio import get_running_loop
-from pathlib import Path
-from queue import Queue
-from time import sleep
-from sys import stdout
+from logging.handlers import RotatingFileHandler
 import logging
+from asyncio import get_running_loop
+from threading import Thread
+from queue import Queue
+from pathlib import Path
+from os import getenv
+import sys
+from datetime import datetime
+from time import sleep
 import tldextract
 import requests
 import json
@@ -21,11 +22,21 @@ class CustomChat(DGGChat):
         logging.error(error)
 
 
+sys.tracebacklimit = 3
+
+log_format = "[%(asctime)s] %(name)s:%(levelname)s: %(message)s"
 logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] %(name)s:%(levelname)s: %(message)s",
-    handlers=[logging.FileHandler("logs.log"), logging.StreamHandler(stdout)],
+    level=logging.DEBUG,
+    format=log_format,
+    handlers=[RotatingFileHandler("logs.log", maxBytes=250000000, backupCount=1)],
 )
+logger = logging.getLogger("dgg_relay")
+log_handler = logging.StreamHandler(sys.stdout)
+log_formatter = logging.Formatter(log_format)
+log_handler.setFormatter(log_formatter)
+logger.addHandler(log_handler)
+logger.setLevel(logging.INFO)
+
 intents = Intents.default()
 intents.members = True
 
@@ -43,7 +54,7 @@ modes = {int(k): v for k, v in config["modes"].items()}
 
 def dgg_to_disc(dgg_nick: str, dgg_txt: str):
     """Converts DGG emotes/links to Discord ones"""
-    logging.debug(f"dgg_to_disc input: {dgg_nick}: {dgg_txt}")
+    logger.debug(f"dgg_to_disc input: {dgg_nick}: {dgg_txt}")
     dgg_txt_split = [dgg_txt]
     if link_search := set(
         re.findall(r"(?:(?:https?|ftp):\/\/)?[\w/\-?=%.]+\.[\w/\-&?=%.]+", dgg_txt)
@@ -66,7 +77,7 @@ def dgg_to_disc(dgg_nick: str, dgg_txt: str):
     dgg_nick = re.sub("[*_`|]", r"\\\g<0>", dgg_nick)
     if any([tag in disc_txt.lower() for tag in ("nsfw", "nsfl")]):
         disc_txt = f"||{disc_txt}||"
-    logging.debug(f"dgg_to_disc output: **{dgg_nick}:** {disc_txt}")
+    logger.debug(f"dgg_to_disc output: **{dgg_nick}:** {disc_txt}")
     return f"**{dgg_nick}:** {disc_txt}"
 
 
@@ -83,7 +94,7 @@ def save_config():
 
 def run_dgg_bot():
     while True:
-        logging.info("Starting DGG bot")
+        logger.info("Starting DGG bot")
         dgg_bot.run()
 
 
@@ -103,9 +114,9 @@ def parse_dgg_queue():
                         discord_bot.disc_loop.create_task(
                             channel.send(dgg_to_disc(msg.nick, msg.data))
                         )
-                    logging.debug(f"Relayed to channel {channel}")
+                    logger.debug(f"Relayed to channel {channel}")
                 else:
-                    logging.warning(f"Channel {channel_id} wasn't found")
+                    logger.warning(f"Channel {channel_id} wasn't found")
         for phrase in phrases.keys():
             lower_phrase = phrase.lower()
             if re.search(rf"\b{lower_phrase}\b", msg.data.lower()):
@@ -119,9 +130,9 @@ def parse_dgg_queue():
                             discord_bot.disc_loop.create_task(
                                 user.send(dgg_to_disc(msg.nick, msg.data))
                             )
-                        logging.debug(f"Relayed to user {user}")
+                        logger.debug(f"Relayed to user {user}")
                     else:
-                        logging.warning(f"User {user_id} wasn't found")
+                        logger.warning(f"User {user_id} wasn't found")
 
 
 dgg_thread = Thread(target=run_dgg_bot)
@@ -141,7 +152,7 @@ async def addemote(
             return
         emotes[dgg_version] = discord_version
         save_config()
-        logging.info(f"Emote {dgg_version} added as {discord_version}")
+        logger.info(f"Emote {dgg_version} added as {discord_version}")
         await ctx.respond(f"Translating {dgg_version} to {discord_version}")
     else:
         await ctx.respond("Please contact tena#5751 to modify emotes", ephemeral=True)
@@ -180,10 +191,10 @@ async def relay(
         if mode == "add":
             if dgg_username not in nicks:
                 nicks[dgg_username] = []
-                logging.info(f'Added new relay list "{dgg_username}"')
+                logger.info(f'Added new relay list "{dgg_username}"')
             if relay_channel not in nicks[dgg_username]:
                 nicks[dgg_username].append(relay_channel)
-                logging.info(
+                logger.info(
                     f'Added relay "{dgg_username}" for server "{ctx.guild.name}"'
                 )
                 response = (
@@ -193,7 +204,7 @@ async def relay(
                 response = f"Messages from '{dgg_username}' are already being relayed to this server."
         elif mode == "remove" and relay_channel in nicks[dgg_username]:
             nicks[dgg_username].remove(relay_channel)
-            logging.info(
+            logger.info(
                 f'Removed relay "{dgg_username}" from server "{ctx.guild.name}"'
             )
             response = f"No longer relaying messages from '{dgg_username}'"
@@ -204,7 +215,7 @@ async def relay(
             return
         if not nicks[dgg_username]:
             nicks.pop(dgg_username)
-            logging.info(f'Removed empty relay list for "{dgg_username}"')
+            logger.info(f'Removed empty relay list for "{dgg_username}"')
         save_config()
         await ctx.respond(response)
     else:
@@ -236,20 +247,20 @@ async def phrase(
         disc_user = ctx.author.id
         if disc_user not in modes.keys():
             modes[disc_user] = "on"
-            logging.info(f"Added new user {disc_user} to modes list")
+            logger.info(f"Added new user {disc_user} to modes list")
         if mode == "add":
             if phrase not in phrases:
                 phrases[phrase] = []
-                logging.info(f'Added new phrase list for "{phrase}"')
+                logger.info(f'Added new phrase list for "{phrase}"')
             if disc_user not in phrases[phrase]:
                 phrases[phrase].append(disc_user)
-                logging.info(f'Appended "{disc_user}" to phrase list "{phrase}"')
+                logger.info(f'Appended "{disc_user}" to phrase list "{phrase}"')
                 response = f"Mentions of '{phrase}' will be messaged to you."
             else:
                 response = f"Mentions of '{phrase}' are already being messaged to you."
         elif mode == "remove" and disc_user in phrases[phrase]:
             phrases[phrase].remove(disc_user)
-            logging.info(f'Removed "{disc_user}" from phrase list "{phrase}"')
+            logger.info(f'Removed "{disc_user}" from phrase list "{phrase}"')
             response = f"No longer relaying mentions of '{phrase}'"
         elif mode == "remove" and disc_user not in phrases[phrase]:
             await ctx.respond(
@@ -259,7 +270,7 @@ async def phrase(
             return
         if not phrases[phrase]:
             phrases.pop(phrase)
-            logging.info(f'Removed empty phrase list "{phrase}"')
+            logger.info(f'Removed empty phrase list "{phrase}"')
         save_config()
         await ctx.respond(response, ephemeral=True)
     else:
@@ -285,7 +296,7 @@ async def phrasemode(
     if mode in ("on", "off", "auto"):
         modes[ctx.author.id] = mode
         save_config()
-        logging.info(f'Phrase mode for "{ctx.author.id}" set to "{mode}"')
+        logger.info(f'Phrase mode for "{ctx.author.id}" set to "{mode}"')
         await ctx.respond(f"Phrase mode set to {mode}", ephemeral=True)
     else:
         await ctx.respond("Invalid parameter", ephemeral=True)
@@ -367,7 +378,7 @@ async def mentions(
 
 @relay.error
 async def relay_error(ctx, error):
-    logging.error(f'Error: "{error}"')
+    logger.error(f'Error: "{error}"')
     await ctx.send(f"Error: {error}")
 
 
@@ -384,5 +395,5 @@ def on_dgg_message(dgg_msg):
 
 
 if __name__ == "__main__":
-    logging.info("Starting Discord bot")
+    logger.info("Starting Discord bot")
     discord_bot.run(getenv("DISC_AUTH"))
