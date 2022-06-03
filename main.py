@@ -55,7 +55,6 @@ modes = {int(k): v for k, v in config["modes"].items()}
 def dgg_to_disc(dgg_nick: str, dgg_txt: str):
     """Converts DGG emotes/links to Discord ones"""
     logger.debug(f"dgg_to_disc input: {dgg_nick}: {dgg_txt}")
-    dgg_txt_split = [dgg_txt]
     if link_search := set(
         re.findall(r"(?:(?:https?|ftp):\/\/)?[\w/\-?=%.]+\.[\w/\-&?=%.]+", dgg_txt)
     ):
@@ -65,15 +64,14 @@ def dgg_to_disc(dgg_nick: str, dgg_txt: str):
                 if not re.search(r"\Ahttps?://", link):
                     dgg_txt = dgg_txt.replace(link, f"https://{link}")
                     link = f"https://{link}"
-                dgg_txt_split = [p for p in re.split(rf"({link})", dgg_txt) if p]
     disc_txt = []
-    for part in dgg_txt_split:
+    for part in dgg_txt.split():
         if not part.startswith("http"):
             for dgg_emote, disc_emote in emotes.items():
                 part = re.sub(rf"\b{dgg_emote}\b", disc_emote, part)
             part = re.sub("[*_`|]", r"\\\g<0>", part)
         disc_txt.append(part)
-    disc_txt = "".join(disc_txt)
+    disc_txt = " ".join(disc_txt)
     dgg_nick = re.sub("[*_`|]", r"\\\g<0>", dgg_nick)
     if any([tag in disc_txt.lower() for tag in ("nsfw", "nsfl")]):
         disc_txt = f"||{disc_txt}||"
@@ -93,12 +91,14 @@ def save_config():
 
 
 def run_dgg_bot():
+    """Thread that runs the DGG bot"""
     while True:
         logger.info("Starting DGG bot")
         dgg_bot.run()
 
 
 def parse_dgg_queue():
+    """Thread that distributes DGG messages to Discord"""
     while True:
         msg: Message = dgg_msg_queue.get()
         if msg.nick.lower() in [nick.lower() for nick in nicks.keys()]:
