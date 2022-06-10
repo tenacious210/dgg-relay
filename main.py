@@ -31,11 +31,11 @@ logging.basicConfig(
     handlers=[RotatingFileHandler("logs.log", maxBytes=250000000, backupCount=1)],
 )
 logger = logging.getLogger("dgg_relay")
-log_handler = logging.StreamHandler(sys.stdout)
+log_stream_handler = logging.StreamHandler(sys.stdout)
+log_stream_handler.setLevel(logging.INFO)
 log_formatter = logging.Formatter(log_format)
-log_handler.setFormatter(log_formatter)
-logger.addHandler(log_handler)
-logger.setLevel(logging.INFO)
+log_stream_handler.setFormatter(log_formatter)
+logger.addHandler(log_stream_handler)
 
 intents = Intents.default()
 intents.members = True
@@ -113,7 +113,7 @@ def parse_dgg_queue():
                         discord_bot.disc_loop.create_task(
                             channel.send(dgg_to_disc(msg.nick, msg.data))
                         )
-                    logger.debug(f"Relayed to channel {channel}")
+                    logger.debug(f"Relayed to channel {channel.id}")
                 else:
                     logger.warning(f"Channel {channel_id} wasn't found")
         for phrase in phrases.keys():
