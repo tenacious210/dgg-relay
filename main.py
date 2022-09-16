@@ -184,13 +184,14 @@ async def relay(
         for channel in ctx.guild.channels:
             if channel.name == "dgg-relay":
                 relay_channel = channel.id
+                break
         if not relay_channel:
             await ctx.respond("Couldn't find this server's dgg-relay channel.")
             return
+        if dgg_username not in nicks:
+            nicks[dgg_username] = []
+            logger.info(f'Added new relay list "{dgg_username}"')
         if mode == "add":
-            if dgg_username not in nicks:
-                nicks[dgg_username] = []
-                logger.info(f'Added new relay list "{dgg_username}"')
             if relay_channel not in nicks[dgg_username]:
                 nicks[dgg_username].append(relay_channel)
                 logger.info(
@@ -247,10 +248,10 @@ async def phrase(
         if disc_user not in modes.keys():
             modes[disc_user] = "on"
             logger.info(f"Added new user {disc_user} to modes list")
+        if phrase not in phrases:
+            phrases[phrase] = []
+            logger.info(f'Added new phrase list for "{phrase}"')
         if mode == "add":
-            if phrase not in phrases:
-                phrases[phrase] = []
-                logger.info(f'Added new phrase list for "{phrase}"')
             if disc_user not in phrases[phrase]:
                 phrases[phrase].append(disc_user)
                 logger.info(f'Appended "{disc_user}" to phrase list "{phrase}"')
