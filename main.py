@@ -37,9 +37,11 @@ async def tena_send(
     ),
 ):
     if ctx.author.id == discord_bot.tena.id:
+        logger.debug(f"Sending message from tena: {message}")
         dgg_bot.send(message)
         await ctx.respond(f"Message sent: {message}", ephemeral=True)
     else:
+        logger.info(f"{ctx.author.id} tried to use send command")
         await ctx.respond(
             "Only my creator tena can use this command :)", ephemeral=True
         )
@@ -60,9 +62,11 @@ async def tena_whisper(
     ),
 ):
     if ctx.author.id == discord_bot.tena.id:
+        logger.debug(f"Sending whisper from tena: {message}")
         dgg_bot.send_privmsg(user, message)
         await ctx.respond(f"Message sent to {user}: {message}", ephemeral=True)
     else:
+        logger.info(f"{ctx.author.id} tried to use whisper command")
         await ctx.respond(
             "Only my creator tena can use this command :)", ephemeral=True
         )
@@ -124,6 +128,7 @@ def on_dgg_message(dgg_msg):
 
 @dgg_bot.event("on_privmsg")
 def on_dgg_whisper(dgg_whisper):
+    logger.debug(f"Forwarding whisper to tena: {dgg_whisper.nick}: {dgg_whisper.data}")
     discord_bot.disc_loop.create_task(
         discord_bot.tena.send(f"W {dgg_to_disc(dgg_whisper.nick, dgg_whisper.data)}")
     )

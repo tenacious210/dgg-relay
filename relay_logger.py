@@ -4,7 +4,7 @@ import sys
 
 log_format = "[%(asctime)s] %(name)s:%(levelname)s: %(message)s"
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format=log_format,
     handlers=[RotatingFileHandler("logs.log", maxBytes=250000000, backupCount=1)],
 )
