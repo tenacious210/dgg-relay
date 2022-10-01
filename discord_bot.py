@@ -1,7 +1,7 @@
 from discord import Option, OptionChoice, Bot, Intents
 from discord.ext.commands import Context, has_role
 from time import sleep
-import datetime
+from datetime import datetime
 import tldextract
 import requests
 import re
