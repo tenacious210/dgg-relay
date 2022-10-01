@@ -39,7 +39,9 @@ async def tena_send(
     if ctx.author.id == discord_bot.tena.id:
         logger.debug(f"Sending message from tena: {message}")
         dgg_bot.send(message)
-        await ctx.respond(f"Message sent: {message}", ephemeral=True)
+        await ctx.respond(
+            f"Message sent {dgg_to_disc('tena', message)}", ephemeral=True
+        )
     else:
         logger.info(f"{ctx.author.id} tried to use send command")
         await ctx.respond(
