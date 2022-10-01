@@ -1,6 +1,6 @@
 from dggbot import DGGBot, Message
 from discord.ext.commands import Context
-from discord import Option
+from discord import Option, OptionChoice
 from threading import Thread
 from queue import Queue
 from os import getenv
@@ -69,6 +69,32 @@ async def tena_whisper(
         )
     else:
         logger.info(f"{ctx.author.id} tried to use whisper command")
+        await ctx.respond(
+            "Only my creator tena can use this command :)", ephemeral=True
+        )
+
+
+@discord_bot.slash_command(name="loglevel")
+async def loglevel(
+    ctx: Context,
+    level: Option(
+        str,
+        "Choose logger level",
+        required=True,
+        choices=(
+            OptionChoice(name="warning", value="30"),
+            OptionChoice(name="info", value="20"),
+            OptionChoice(name="debug", value="10"),
+        ),
+    ),
+):
+    if ctx.author.id == discord_bot.tena.id:
+        logger.setLevel(int(level))
+        response = f"Set logging level to {logger.level}"
+        logger.info(response)
+        await ctx.respond(response, ephemeral=True)
+    else:
+        logger.info(f"{ctx.author.id} tried to use loglevel command")
         await ctx.respond(
             "Only my creator tena can use this command :)", ephemeral=True
         )
