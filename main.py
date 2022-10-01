@@ -62,7 +62,7 @@ async def tena_whisper(
     ),
 ):
     if ctx.author.id == discord_bot.tena.id:
-        logger.debug(f"Sending whisper from tena: {message}")
+        logger.debug(f"Sending whisper from tena to {user}: {message}")
         dgg_bot.send_privmsg(user, message)
         await ctx.respond(
             f"Message sent to {dgg_to_disc(user, message)}", ephemeral=True
@@ -124,7 +124,9 @@ def parse_dgg_queue():
                         discord_bot.disc_loop.create_task(
                             channel.send(dgg_to_disc(msg.nick, msg.data))
                         )
-                    logger.debug(f"Relayed to channel {channel.id}")
+                    logger.debug(
+                        f"Relayed '{msg.nick}: {msg.data}' to channel {channel.id}"
+                    )
                 else:
                     logger.warning(f"Channel {channel_id} wasn't found")
         for phrase in phrases.keys():
@@ -140,7 +142,7 @@ def parse_dgg_queue():
                             discord_bot.disc_loop.create_task(
                                 user.send(dgg_to_disc(msg.nick, msg.data))
                             )
-                        logger.debug(f"Relayed to user {user}")
+                            logger.debug(f"Relayed '{msg.nick}: {msg.data}' to {user}")
                     else:
                         logger.warning(f"User {user_id} wasn't found")
 
