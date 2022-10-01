@@ -17,7 +17,6 @@ discord_bot = Bot(intents=intents)
 
 def dgg_to_disc(dgg_nick: str, dgg_txt: str):
     """Converts DGG emotes/links to Discord ones"""
-    logger.debug(f"dgg_to_disc input: {dgg_nick}: {dgg_txt}")
     for link in set(
         re.findall(r"(?:(?:https?|ftp):\/\/)?[\w/\-?=%.]+\.[\w/\-&?=%.]+", dgg_txt)
     ):
@@ -37,7 +36,6 @@ def dgg_to_disc(dgg_nick: str, dgg_txt: str):
     dgg_nick = re.sub("[*_`|]", r"\\\g<0>", dgg_nick)
     if any([tag in disc_txt.lower() for tag in ("nsfw", "nsfl")]):
         disc_txt = f"||{disc_txt}||"
-    logger.debug(f"dgg_to_disc output: **{dgg_nick}:** {disc_txt}")
     return f"**{dgg_nick}:** {disc_txt}"
 
 
