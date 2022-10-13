@@ -11,7 +11,7 @@ from asyncio import get_running_loop
 import sys
 import re
 
-from config import nicks, phrases, modes
+from config import nicks, phrases, modes, emotes
 from relay_logger import logger
 from discord_bot import discord_bot, dgg_to_disc
 
@@ -38,11 +38,20 @@ async def on_message(msg: DiscMessage):
             if whisper_re := re.match(r"W \*\*(.+):\*\*.+", ref_msg.content):
                 logger.debug(f"Sending a whisper in reply to {ref_msg.content}")
                 await tena_whisper(ctx=msg, user=whisper_re[1], message=msg.content)
-                await msg.add_reaction(emoji="✅")
             elif chat_re := re.match(r"\*\*(.+):\*\*.+", ref_msg.content):
                 logger.debug(f"Sending a chat message in reply to {ref_msg.content}")
                 await tena_send(ctx=msg, message=f"{chat_re[1]} {msg.content}")
+            if whisper_re or chat_re:
                 await msg.add_reaction(emoji="☑️")
+                reaction_emote = None
+                for emote in emotes.keys():
+                    if re.search(rf"\b{emote}\b", msg.content):
+                        emote_raw: str = emotes[emote]
+                        emote_id = int(
+                            emote_raw[emote_raw.find(":", 3) + 1 : emote_raw.find(">")]
+                        )
+                        reaction_emote = discord_bot.get_emoji(emote_id)
+                        await msg.add_reaction(reaction_emote)
 
 
 @discord_bot.slash_command(name="send")
