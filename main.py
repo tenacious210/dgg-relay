@@ -54,13 +54,12 @@ async def tena_send(
         required=True,
     ),
 ):
-    print(type(ctx))
     if ctx.author.id == discord_bot.tena.id:
         logger.debug(f"Sending message from tena: {message}")
         dgg_bot.send(message)
         response = f"Message sent {dgg_to_disc('tena', message)}"
         if isinstance(ctx, ApplicationContext):
-            await ctx.respond(response, ephemeral=True)
+            await ctx.respond(response)
     else:
         logger.info(f"{ctx.author.id} tried to use send command")
         await ctx.respond(
@@ -87,7 +86,7 @@ async def tena_whisper(
         dgg_bot.send_privmsg(user, message)
         response = f"Message sent to {dgg_to_disc(user, message)}"
         if isinstance(ctx, Context):
-            await ctx.respond(response, ephemeral=True)
+            await ctx.respond(response)
     else:
         logger.info(f"{ctx.author.id} tried to use whisper command")
         await ctx.respond(
