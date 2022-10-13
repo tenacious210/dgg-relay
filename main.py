@@ -35,11 +35,11 @@ async def on_message(msg: DiscMessage):
     if (ref := msg.reference) and (msg.author.id == discord_bot.tena.id):
         ref_msg: DiscMessage = await msg.channel.fetch_message(ref.message_id)
         if ref_msg.author.id == discord_bot.user.id:
-            if whisper_re := re.match(r"W \*\*(\w+):\*\*.+", ref_msg.content):
+            if whisper_re := re.match(r"W \*\*(.+):\*\*.+", ref_msg.content):
                 logger.debug(f"Sending a whisper in reply to {ref_msg.content}")
                 await tena_whisper(ctx=msg, user=whisper_re[1], message=msg.content)
                 await msg.add_reaction(emoji="✅")
-            elif chat_re := re.match(r"\*\*(\w+):\*\*.+", ref_msg.content):
+            elif chat_re := re.match(r"\*\*(.+):\*\*.+", ref_msg.content):
                 logger.debug(f"Sending a chat message in reply to {ref_msg.content}")
                 await tena_send(ctx=msg, message=f"{chat_re[1]} {msg.content}")
                 await msg.add_reaction(emoji="☑️")
