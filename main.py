@@ -1,6 +1,7 @@
 from dggbot import DGGBot
 from dggbot import Message as DGGMessage
 from discord.ext.commands import Context
+from discord.commands.context import ApplicationContext
 from discord import Option, OptionChoice
 from discord import Message as DiscMessage
 from threading import Thread
@@ -37,28 +38,29 @@ async def on_message(msg: DiscMessage):
             if whisper_re := re.match(r"W \*\*(\w+):\*\*.+", ref_msg.content):
                 logger.debug(f"Sending a whisper in reply to {ref_msg.content}")
                 await tena_whisper(ctx=msg, user=whisper_re[1], message=msg.content)
+                await msg.add_reaction(emoji="✅")
             elif chat_re := re.match(r"\*\*(\w+):\*\*.+", ref_msg.content):
                 logger.debug(f"Sending a chat message in reply to {ref_msg.content}")
                 await tena_send(ctx=msg, message=f"{chat_re[1]} {msg.content}")
+                await msg.add_reaction(emoji="☑")
 
 
 @discord_bot.slash_command(name="send")
 async def tena_send(
-    ctx: Context,
+    ctx: ApplicationContext,
     message: Option(
         str,
         "The message to send",
         required=True,
     ),
 ):
+    print(type(ctx))
     if ctx.author.id == discord_bot.tena.id:
         logger.debug(f"Sending message from tena: {message}")
         dgg_bot.send(message)
         response = f"Message sent {dgg_to_disc('tena', message)}"
-        if isinstance(ctx, Context):
-            await ctx.respond(response)
-        elif isinstance(ctx, DiscMessage):
-            await ctx.reply(response)
+        if isinstance(ctx, ApplicationContext):
+            await ctx.respond(response, ephemeral=True)
     else:
         logger.info(f"{ctx.author.id} tried to use send command")
         await ctx.respond(
@@ -85,9 +87,7 @@ async def tena_whisper(
         dgg_bot.send_privmsg(user, message)
         response = f"Message sent to {dgg_to_disc(user, message)}"
         if isinstance(ctx, Context):
-            await ctx.respond(response)
-        elif isinstance(ctx, DiscMessage):
-            await ctx.reply(response)
+            await ctx.respond(response, ephemeral=True)
     else:
         logger.info(f"{ctx.author.id} tried to use whisper command")
         await ctx.respond(
