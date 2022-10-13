@@ -1,6 +1,8 @@
-from dggbot import DGGBot, Message
+from dggbot import DGGBot
+from dggbot import Message as DGGMessage
 from discord.ext.commands import Context
 from discord import Option, OptionChoice
+from discord import Message as DiscMessage
 from threading import Thread
 from queue import Queue
 from os import getenv
@@ -27,6 +29,20 @@ async def on_ready():
     parse_dgg_queue_thread.start()
 
 
+@discord_bot.event
+async def on_message(msg: DiscMessage):
+    if (ref := msg.reference) and (msg.author.id == discord_bot.tena.id):
+        ref_msg: DiscMessage = await msg.channel.fetch_message(ref.message_id)
+        logger.debug(ref_msg.content)
+        if ref_msg.author.id == discord_bot.user.id:
+            if whisper_re := re.match(r"W \*\*(\w+):\*\*.+", ref_msg.content):
+                logger.debug("Calling tena_whisper from a message reply")
+                await tena_whisper(ctx=msg, user=whisper_re[1], message=msg.content)
+            elif re.match(r"\*\*(\w+):\*\*.+", ref_msg.content):
+                logger.debug("Calling tena_send from a reply")
+                await tena_send(ctx=msg, message=msg.content)
+
+
 @discord_bot.slash_command(name="send")
 async def tena_send(
     ctx: Context,
@@ -39,9 +55,11 @@ async def tena_send(
     if ctx.author.id == discord_bot.tena.id:
         logger.debug(f"Sending message from tena: {message}")
         dgg_bot.send(message)
-        await ctx.respond(
-            f"Message sent {dgg_to_disc('tena', message)}", ephemeral=True
-        )
+        response = f"Message sent {dgg_to_disc('tena', message)}"
+        if isinstance(ctx, Context):
+            await ctx.respond(response)
+        elif isinstance(ctx, DiscMessage):
+            await ctx.reply(response)
     else:
         logger.info(f"{ctx.author.id} tried to use send command")
         await ctx.respond(
@@ -66,9 +84,11 @@ async def tena_whisper(
     if ctx.author.id == discord_bot.tena.id:
         logger.debug(f"Sending whisper from tena to {user}: {message}")
         dgg_bot.send_privmsg(user, message)
-        await ctx.respond(
-            f"Message sent to {dgg_to_disc(user, message)}", ephemeral=True
-        )
+        response = f"Message sent to {dgg_to_disc(user, message)}"
+        if isinstance(ctx, Context):
+            await ctx.respond(response)
+        elif isinstance(ctx, DiscMessage):
+            await ctx.reply(response)
     else:
         logger.info(f"{ctx.author.id} tried to use whisper command")
         await ctx.respond(
@@ -112,7 +132,7 @@ def run_dgg_bot():
 def parse_dgg_queue():
     """Thread that distributes DGG messages to Discord"""
     while True:
-        msg: Message = dgg_msg_queue.get()
+        msg: DGGMessage = dgg_msg_queue.get()
         if msg.nick.lower() in [nick.lower() for nick in nicks.keys()]:
             for channel_id in nicks[msg.nick]:
                 if channel := discord_bot.get_channel(channel_id):

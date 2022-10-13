@@ -11,6 +11,7 @@ from config import nicks, phrases, emotes, modes, save_config
 
 intents = Intents.default()
 intents.members = True
+intents.messages = True
 
 discord_bot = Bot(intents=intents)
 
