@@ -33,13 +33,12 @@ async def on_ready():
 async def on_message(msg: DiscMessage):
     if (ref := msg.reference) and (msg.author.id == discord_bot.tena.id):
         ref_msg: DiscMessage = await msg.channel.fetch_message(ref.message_id)
-        logger.debug(ref_msg.content)
         if ref_msg.author.id == discord_bot.user.id:
             if whisper_re := re.match(r"W \*\*(\w+):\*\*.+", ref_msg.content):
-                logger.debug("Calling tena_whisper from a message reply")
+                logger.debug(f"Sending a whisper in reply to {ref_msg.content}")
                 await tena_whisper(ctx=msg, user=whisper_re[1], message=msg.content)
             elif re.match(r"\*\*(\w+):\*\*.+", ref_msg.content):
-                logger.debug("Calling tena_send from a reply")
+                logger.debug(f"Sending a chat message in reply to {ref_msg.content}")
                 await tena_send(ctx=msg, message=msg.content)
 
 
