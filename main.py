@@ -42,7 +42,7 @@ async def on_message(msg: DiscMessage):
             elif chat_re := re.match(r"\*\*(\w+):\*\*.+", ref_msg.content):
                 logger.debug(f"Sending a chat message in reply to {ref_msg.content}")
                 await tena_send(ctx=msg, message=f"{chat_re[1]} {msg.content}")
-                await msg.add_reaction(emoji="☑")
+                await msg.add_reaction(emoji="☑️")
 
 
 @discord_bot.slash_command(name="send")
