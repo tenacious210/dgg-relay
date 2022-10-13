@@ -37,9 +37,9 @@ async def on_message(msg: DiscMessage):
             if whisper_re := re.match(r"W \*\*(\w+):\*\*.+", ref_msg.content):
                 logger.debug(f"Sending a whisper in reply to {ref_msg.content}")
                 await tena_whisper(ctx=msg, user=whisper_re[1], message=msg.content)
-            elif re.match(r"\*\*(\w+):\*\*.+", ref_msg.content):
+            elif chat_re := re.match(r"\*\*(\w+):\*\*.+", ref_msg.content):
                 logger.debug(f"Sending a chat message in reply to {ref_msg.content}")
-                await tena_send(ctx=msg, message=msg.content)
+                await tena_send(ctx=msg, message=f"{chat_re[1]} {msg.content}")
 
 
 @discord_bot.slash_command(name="send")
