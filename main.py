@@ -67,7 +67,7 @@ async def tena_send(
         logger.debug(f"Sending message from tena: {message}")
         dgg_bot.send(message)
         response = f"Message sent {dgg_to_disc('tena', message)}"
-        if isinstance(ctx, ApplicationContext):
+        if type(ctx) == ApplicationContext:
             await ctx.respond(response)
     else:
         logger.info(f"{ctx.author.id} tried to use send command")
@@ -94,7 +94,7 @@ async def tena_whisper(
         logger.debug(f"Sending whisper from tena to {user}: {message}")
         dgg_bot.send_privmsg(user, message)
         response = f"Message sent to {dgg_to_disc(user, message)}"
-        if isinstance(ctx, Context):
+        if type(ctx) == ApplicationContext:
             await ctx.respond(response)
     else:
         logger.info(f"{ctx.author.id} tried to use whisper command")
