@@ -85,7 +85,7 @@ class OwnerCog(Cog):
         ]
     )
     @app_commands.describe(level="The level to set the logger to")
-    async def loglevel(self, ctx: Interaction, level: Choice[int]):
+    async def loglevel(self, ctx: Interaction, level: int):
         """(Owner only) Sets the level of the stdout logger"""
         if not await self.bot.is_owner(ctx.user):
             await self.owner_error(ctx, "/loglevel")
