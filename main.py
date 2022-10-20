@@ -32,7 +32,7 @@ class CustomDiscBot(commands.Bot):
         """Downloads and reads config file to set attributes"""
         if self.sync_config:
             self.blob.download_to_filename("config.json")
-            logger.debug("Downloaded config file")
+            logger.info("Downloaded config file")
         with open("config.json", "r") as config_file:
             config = json.loads(config_file.read())
             config["presence"] = {int(k): v for k, v in config["presence"].items()}
@@ -69,7 +69,6 @@ class CustomDiscBot(commands.Bot):
         self.owner = app_info.owner
         await self.add_cog(OwnerCog(self))
         await self.add_cog(PublicCog(self))
-        # await self.tree.sync()
 
     def dgg_to_disc(self, dgg_nick: str, dgg_txt: str):
         """Converts DGG emotes/links to Discord ones"""
