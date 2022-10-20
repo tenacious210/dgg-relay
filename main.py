@@ -14,7 +14,7 @@ from cogs import OwnerCog, PublicCog
 
 
 class CustomDiscBot(commands.Bot):
-    sync_config = False
+    sync_config = True
 
     def __init__(self):
         if self.sync_config:
