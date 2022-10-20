@@ -1,9 +1,10 @@
 from dggbot import DGGBot, Message, PrivateMessage
-from google.cloud import storage
 from discord import Intents, User
 from discord.ext import commands
 from threading import Thread
 from queue import Queue
+from google.cloud import storage
+import google.cloud.logging
 import json
 import tldextract
 import re
@@ -13,17 +14,20 @@ from cogs import OwnerCog, PublicCog
 
 
 class CustomDiscBot(commands.Bot):
-    sync_config = True
+    sync_config = False
 
     def __init__(self):
-        intents = Intents.default()
-        intents.members = True
-        intents.message_content = True
-        super().__init__(command_prefix="/", intents=intents)
         if self.sync_config:
             storage_client = storage.Client()
             storage_bucket = storage_client.bucket("tenadev")
             self.blob = storage_bucket.blob("dgg-relay/config.json")
+            logger_client = google.cloud.logging.Client()
+            logger_client.setup_logging()
+
+        intents = Intents.default()
+        intents.members = True
+        intents.message_content = True
+        super().__init__(command_prefix="/", intents=intents)
         self.read_config()
         self.dgg_bot = CustomDGGBot(auth_token=self.dgg_auth)
         self.owner: User = None

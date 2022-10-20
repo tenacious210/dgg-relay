@@ -3,4 +3,5 @@ discord.py
 requests
 tldextract
 google-cloud-storage
+google-cloud-logging
 websocket-client
