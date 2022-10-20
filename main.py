@@ -1,198 +1,168 @@
-from dggbot import DGGBot
-from dggbot import Message as DGGMessage
-from discord.ext.commands import Context
-from discord.commands.context import ApplicationContext
-from discord import Option, OptionChoice
-from discord import Message as DiscMessage
+from dggbot import DGGBot, Message, PrivateMessage
+from google.cloud import storage
+from discord import Intents, User
+from discord.ext import commands
 from threading import Thread
 from queue import Queue
-from os import getenv
-from asyncio import get_running_loop
-import sys
+import json
+import tldextract
 import re
 
-from config import nicks, phrases, modes, emotes
-from relay_logger import logger
-from discord_bot import discord_bot, dgg_to_disc
-
-sys.tracebacklimit = 3
+from logger import logger
+from cogs import OwnerCog, PublicCog
 
 
-dgg_bot = DGGBot(getenv("DGG_AUTH"))
-dgg_msg_queue = Queue()
+class CustomDiscBot(commands.Bot):
+    sync_config = True
 
+    def __init__(self):
+        intents = Intents.default()
+        intents.members = True
+        intents.message_content = True
+        super().__init__(command_prefix="/", intents=intents)
+        if self.sync_config:
+            storage_client = storage.Client()
+            storage_bucket = storage_client.bucket("tenadev")
+            self.blob = storage_bucket.blob("dgg-relay/config.json")
+        self.read_config()
+        self.dgg_bot = CustomDGGBot(auth_token=self.dgg_auth)
+        self.owner: User = None
 
-@discord_bot.event
-async def on_ready():
-    discord_bot.disc_loop = get_running_loop()
-    discord_bot.tena = discord_bot.get_user(504613278769479681)
-    dgg_thread.start()
-    parse_dgg_queue_thread.start()
+    def read_config(self):
+        """Downloads and reads config file to set attributes"""
+        if self.sync_config:
+            self.blob.download_to_filename("config.json")
+            logger.debug("Downloaded config file")
+        with open("config.json", "r") as config_file:
+            config = json.loads(config_file.read())
+            config["presence"] = {int(k): v for k, v in config["presence"].items()}
+        self.disc_auth, self.dgg_auth = config["disc_auth"], config["dgg_auth"]
+        self.nicks, self.phrases = config["nicks"], config["phrases"]
+        self.emotes, self.presence = config["emotes"], config["presence"]
 
+    def save_config(self):
+        """Saves attributes to the config file and uploads them"""
+        to_json = {
+            "disc_auth": self.disc_auth,
+            "dgg_auth": self.dgg_auth,
+            "nicks": self.nicks,
+            "phrases": self.phrases,
+            "presence": {str(k): v for k, v in self.presence.items()},
+            "emotes": self.emotes,
+        }
+        with open("config.json", "w") as config_file:
+            json.dump(to_json, config_file, indent=2)
+        if self.sync_config:
+            self.blob.upload_from_filename("config.json")
+            logger.debug("Uploaded config file")
 
-@discord_bot.event
-async def on_message(msg: DiscMessage):
-    if (ref := msg.reference) and (msg.author.id == discord_bot.tena.id):
-        ref_msg: DiscMessage = await msg.channel.fetch_message(ref.message_id)
-        if ref_msg.author.id == discord_bot.user.id:
-            if whisper_re := re.match(r"W \*\*(.+):\*\*.+", ref_msg.content):
-                logger.debug(f"Sending a whisper in reply to {ref_msg.content}")
-                await tena_whisper(ctx=msg, user=whisper_re[1], message=msg.content)
-            elif chat_re := re.match(r"\*\*(.+):\*\*.+", ref_msg.content):
-                logger.debug(f"Sending a chat message in reply to {ref_msg.content}")
-                await tena_send(ctx=msg, message=f"{chat_re[1]} {msg.content}")
-            if whisper_re or chat_re:
-                await msg.add_reaction(emoji="☑️")
-                reaction_emote = None
-                for emote in emotes.keys():
-                    if re.search(rf"\b{emote}\b", msg.content):
-                        emote_raw: str = emotes[emote]
-                        emote_id = int(
-                            emote_raw[emote_raw.find(":", 3) + 1 : emote_raw.find(">")]
-                        )
-                        reaction_emote = discord_bot.get_emoji(emote_id)
-                        await msg.add_reaction(reaction_emote)
+    async def setup_hook(self):
+        logger.info("Starting Discord bot")
+        dgg_bot_thread = Thread(target=self.dgg_bot.run_forever)
+        dgg_bot_thread.start()
+        dgg_listener_thread = Thread(target=self.dgg_listener)
+        dgg_listener_thread.start()
+        if self.dgg_auth:
+            priv_listener_thread = Thread(target=self.dgg_priv_listener)
+            priv_listener_thread.start()
+        app_info = await self.application_info()
+        self.owner = app_info.owner
+        await self.add_cog(OwnerCog(self))
+        await self.add_cog(PublicCog(self))
+        # await self.tree.sync()
 
+    def dgg_to_disc(self, dgg_nick: str, dgg_txt: str):
+        """Converts DGG emotes/links to Discord ones"""
+        for link in set(
+            re.findall(r"(?:(?:https?|ftp):\/\/)?[\w/\-?=%.]+\.[\w/\-&?=%.]+", dgg_txt)
+        ):
+            url = tldextract.extract(link)
+            if url.domain and url.suffix:
+                if not re.search(r"\Ahttps?://", link):
+                    dgg_txt = dgg_txt.replace(link, f"https://{link}")
+                    link = f"https://{link}"
+        disc_txt = []
+        for part in dgg_txt.split():
+            if not part.startswith("http"):
+                for dgg_emote, disc_emote in self.emotes.items():
+                    part = re.sub(rf"\b{dgg_emote}\b", disc_emote, part)
+                part = re.sub("[*_`|@]", r"\\\g<0>", part)
+            disc_txt.append(part)
+        disc_txt = " ".join(disc_txt)
+        dgg_nick = re.sub("[*_`|]", r"\\\g<0>", dgg_nick)
+        if any([tag in disc_txt.lower() for tag in ("nsfw", "nsfl")]):
+            disc_txt = f"||{disc_txt}||"
+        return f"**{dgg_nick}:** {disc_txt}"
 
-@discord_bot.slash_command(name="send")
-async def tena_send(
-    ctx: ApplicationContext,
-    message: Option(
-        str,
-        "The message to send",
-        required=True,
-    ),
-):
-    if ctx.author.id == discord_bot.tena.id:
-        logger.debug(f"Sending message from tena: {message}")
-        dgg_bot.send(message)
-        response = f"Message sent {dgg_to_disc('tena', message)}"
-        if type(ctx) == ApplicationContext:
-            await ctx.respond(response)
-    else:
-        logger.info(f"{ctx.author.id} tried to use send command")
-        await ctx.respond(
-            "Only my creator tena can use this command :)", ephemeral=True
-        )
+    def dgg_listener(self):
+        while True:
+            msg = self.dgg_bot.msg_queue.get()
+            self.relay(msg)
 
+    def dgg_priv_listener(self):
+        while True:
+            msg = self.dgg_bot.privmsg_queue.get()
+            self.relay_privmsg(msg)
 
-@discord_bot.slash_command(name="whisper")
-async def tena_whisper(
-    ctx: Context,
-    user: Option(
-        str,
-        "The user to whisper",
-        required=True,
-    ),
-    message: Option(
-        str,
-        "The message to whisper",
-        required=True,
-    ),
-):
-    if ctx.author.id == discord_bot.tena.id:
-        logger.debug(f"Sending whisper from tena to {user}: {message}")
-        dgg_bot.send_privmsg(user, message)
-        response = f"Message sent to {dgg_to_disc(user, message)}"
-        if type(ctx) == ApplicationContext:
-            await ctx.respond(response)
-    else:
-        logger.info(f"{ctx.author.id} tried to use whisper command")
-        await ctx.respond(
-            "Only my creator tena can use this command :)", ephemeral=True
-        )
-
-
-@discord_bot.slash_command(name="loglevel")
-async def loglevel(
-    ctx: Context,
-    level: Option(
-        str,
-        "Choose logger level",
-        required=True,
-        choices=(
-            OptionChoice(name="warning", value="30"),
-            OptionChoice(name="info", value="20"),
-            OptionChoice(name="debug", value="10"),
-        ),
-    ),
-):
-    if ctx.author.id == discord_bot.tena.id:
-        logger.setLevel(int(level))
-        response = f"Set logging level to {logger.level}"
-        logger.info(response)
-        await ctx.respond(response, ephemeral=True)
-    else:
-        logger.info(f"{ctx.author.id} tried to use loglevel command")
-        await ctx.respond(
-            "Only my creator tena can use this command :)", ephemeral=True
-        )
-
-
-def run_dgg_bot():
-    """Thread that runs the DGG bot"""
-    while True:
-        logger.debug("Starting DGG bot")
-        dgg_bot.run()
-
-
-def parse_dgg_queue():
-    """Thread that distributes DGG messages to Discord"""
-    while True:
-        msg: DGGMessage = dgg_msg_queue.get()
-        if msg.nick.lower() in [nick.lower() for nick in nicks.keys()]:
-            for channel_id in nicks[msg.nick]:
-                if channel := discord_bot.get_channel(channel_id):
-                    if (
-                        "nsfw" in msg.data.lower() or "nsfl" in msg.data.lower()
-                    ) and not channel.is_nsfw():
-                        discord_bot.disc_loop.create_task(
-                            channel.send(f"**{msg.nick}:** _Censored for nsfw tag_")
-                        )
+    def relay(self, msg: Message):
+        """Takes in a DGG message and relays it to Discord"""
+        if msg.nick.lower() in [nick.lower() for nick in self.nicks.keys()]:
+            for channel_id in self.nicks[msg.nick]:
+                if channel := self.get_channel(channel_id):
+                    msg_is_nsfw = any([n in msg.data.lower() for n in ("nsfw", "nsfl")])
+                    if (not msg_is_nsfw) or (msg_is_nsfw and channel.is_nsfw()):
+                        relay_message = self.dgg_to_disc(msg.nick, msg.data)
                     else:
-                        discord_bot.disc_loop.create_task(
-                            channel.send(dgg_to_disc(msg.nick, msg.data))
-                        )
-                    logger.debug(
-                        f"Relayed '{msg.nick}: {msg.data}' to channel {channel.id}"
-                    )
+                        relay_message = f"**{msg.nick}:** _Censored for nsfw tag_"
+                    self.loop.create_task(channel.send(relay_message))
+                    logger.debug(f"Relayed '{relay_message}' to {channel.guild}")
                 else:
                     logger.warning(f"Channel {channel_id} wasn't found")
-        for phrase in phrases.keys():
+        for phrase in self.phrases.keys():
             lower_phrase = phrase.lower()
             if re.search(rf"\b{lower_phrase}\b", msg.data.lower()):
-                for user_id in phrases[phrase]:
-                    if user := discord_bot.get_user(user_id):
+                for user_id in self.phrases[phrase]:
+                    if user := self.get_user(user_id):
                         if (
-                            modes[user_id] == "auto"
-                            and lower_phrase not in dgg_bot.users.keys()
-                            or modes[user_id] == "on"
+                            self.presence[user_id] == "on"
+                            and lower_phrase not in self.dgg_bot.users.keys()
+                            or self.presence[user_id] == "off"
                         ):
-                            discord_bot.disc_loop.create_task(
-                                user.send(dgg_to_disc(msg.nick, msg.data))
-                            )
-                            logger.debug(f"Relayed '{msg.nick}: {msg.data}' to {user}")
+                            relay_message = self.dgg_to_disc(msg.nick, msg.data)
+                            self.loop.create_task(user.send(relay_message))
+                            logger.debug(f"Relayed '{relay_message}' to {user}")
                     else:
                         logger.warning(f"User {user_id} wasn't found")
 
-
-dgg_thread = Thread(target=run_dgg_bot)
-parse_dgg_queue_thread = Thread(target=parse_dgg_queue)
-
-
-@dgg_bot.event("on_msg")
-def on_dgg_message(dgg_msg):
-    dgg_msg_queue.put(dgg_msg)
+    def relay_privmsg(self, msg: PrivateMessage):
+        """Relays private messages to the bot's owner"""
+        message = f"W {self.dgg_to_disc(msg.nick, msg.data)}"
+        logger.debug(f"Forwarding whisper to owner: {message}")
+        self.loop.create_task(self.owner.send(message))
 
 
-@dgg_bot.event("on_privmsg")
-def on_dgg_whisper(dgg_whisper):
-    logger.debug(f"Forwarding whisper to tena: {dgg_whisper.nick}: {dgg_whisper.data}")
-    discord_bot.disc_loop.create_task(
-        discord_bot.tena.send(f"W {dgg_to_disc(dgg_whisper.nick, dgg_whisper.data)}")
-    )
+class CustomDGGBot(DGGBot):
+    def __init__(self, auth_token: str):
+        super().__init__(auth_token)
+        self.msg_queue = Queue()
+        self.privmsg_queue = Queue()
+
+    def on_msg(self, msg: Message):
+        super().on_msg(msg)
+        self.msg_queue.put(msg)
+
+    def on_privmsg(self, msg: PrivateMessage):
+        super().on_privmsg(msg)
+        self.privmsg_queue.put(msg)
+
+    def run_forever(self):
+        while True:
+            logger.debug("Starting DGG bot")
+            self.run()
+
+
+main_bot = CustomDiscBot()
 
 
 if __name__ == "__main__":
-    logger.info("Starting Discord bot")
-    discord_bot.run(getenv("DISC_AUTH"))
+    main_bot.run(main_bot.disc_auth)

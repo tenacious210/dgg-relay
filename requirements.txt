@@ -1,4 +1,6 @@
 dgg-bot
-py-cord --pre
+discord.py
 requests
 tldextract
+google-cloud-storage
+websocket-client
