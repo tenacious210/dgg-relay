@@ -32,24 +32,27 @@ class OwnerCog(Cog):
         Checks if the bot's owner has replied to one of its messages,
         and then sends the owner's message back to DGG
         """
-        if (ref := msg.reference) and await self.bot.is_owner(msg.author):
+        if (
+            (ref := msg.reference)
+            and not msg.is_system()
+            and await self.bot.is_owner(msg.author)
+        ):
             ref_msg: Message = await msg.channel.fetch_message(ref.message_id)
-            if ref_msg.author.id == self.bot.user.id:
-                if whisper_re := re.match(r"W \*\*(.+):\*\*.+", ref_msg.content):
-                    logger.debug(f"Sending a whisper in reply to {ref_msg.id}")
-                    self.bot.dgg_bot.send_privmsg(whisper_re[1], msg.content)
-                elif chat_re := re.match(r"\*\*(.+):\*\*.+", ref_msg.content):
-                    username = chat_re[1].replace("\\", "")
-                    logger.debug(f"Sending a message in reply to {ref_msg.id}")
-                    self.bot.dgg_bot.send(f"{username} {msg.content}")
-                if whisper_re or chat_re:
-                    await msg.add_reaction("☑️")
-                    for emote in self.bot.emotes.keys():
-                        if re.search(rf"\b{emote}\b", msg.content):
-                            er: str = self.bot.emotes[emote]
-                            emote_id = int(er[er.find(":", 3) + 1 : er.find(">")])
-                            reaction_emote = self.bot.get_emoji(emote_id)
-                            await msg.add_reaction(reaction_emote)
+            if whisper_re := re.match(r"W \*\*(.+):\*\*.+", ref_msg.content):
+                logger.debug(f"Sending a whisper in reply to {ref_msg.id}")
+                self.bot.dgg_bot.send_privmsg(whisper_re[1], msg.content)
+            elif chat_re := re.match(r"\*\*(.+):\*\*.+", ref_msg.content):
+                username = chat_re[1].replace("\\", "")
+                logger.debug(f"Sending a message in reply to {ref_msg.id}")
+                self.bot.dgg_bot.send(f"{username} {msg.content}")
+            if whisper_re or chat_re:
+                await msg.add_reaction("☑️")
+                for emote in self.bot.emotes.keys():
+                    if re.search(rf"\b{emote}\b", msg.content):
+                        er: str = self.bot.emotes[emote]
+                        emote_id = int(er[er.find(":", 3) + 1 : er.find(">")])
+                        reaction_emote = self.bot.get_emoji(emote_id)
+                        await msg.add_reaction(reaction_emote)
 
     @app_commands.command(name="send")
     @app_commands.describe(message="The message to send to DGG chat")
