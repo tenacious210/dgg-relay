@@ -1,29 +1,26 @@
+from google.cloud import storage
 from dggbot import DGGBot, Message, PrivateMessage
 from discord import Intents, User
 from discord.ext import commands
 from threading import Thread
 from queue import Queue
-from google.cloud import storage
-import google.cloud.logging
 import json
 import tldextract
 import re
 
-from logger import logger
+from logger import logger, enable_cloud_logging
 from cogs import OwnerCog, PublicCog
 
 
 class CustomDiscBot(commands.Bot):
-    sync_config = True
+    cloud_sync = True
 
     def __init__(self):
-        if self.sync_config:
+        if self.cloud_sync:
             storage_client = storage.Client()
             storage_bucket = storage_client.bucket("tenadev")
-            self.blob = storage_bucket.blob("dgg-relay/config.json")
-            logger_client = google.cloud.logging.Client()
-            logger_client.setup_logging()
-
+            self.config_blob = storage_bucket.blob("dgg-relay/config.json")
+            enable_cloud_logging()
         intents = Intents.default()
         intents.members = True
         intents.message_content = True
@@ -34,8 +31,8 @@ class CustomDiscBot(commands.Bot):
 
     def read_config(self):
         """Downloads and reads config file to set attributes"""
-        if self.sync_config:
-            self.blob.download_to_filename("config.json")
+        if self.cloud_sync:
+            self.config_blob.download_to_filename("config.json")
             logger.info("Downloaded config file")
         with open("config.json", "r") as config_file:
             config = json.loads(config_file.read())
@@ -56,13 +53,13 @@ class CustomDiscBot(commands.Bot):
         }
         with open("config.json", "w") as config_file:
             json.dump(to_json, config_file, indent=2)
-        if self.sync_config:
-            self.blob.upload_from_filename("config.json")
+        if self.cloud_sync:
+            self.config_blob.upload_from_filename("config.json")
             logger.debug("Uploaded config file")
 
     async def setup_hook(self):
         logger.info("Starting Discord bot")
-        dgg_bot_thread = Thread(target=self.dgg_bot.run_forever)
+        dgg_bot_thread = Thread(target=self.dgg_bot.run)
         dgg_bot_thread.start()
         dgg_listener_thread = Thread(target=self.dgg_listener)
         dgg_listener_thread.start()
@@ -158,14 +155,18 @@ class CustomDGGBot(DGGBot):
         super().on_privmsg(msg)
         self.privmsg_queue.put(msg)
 
-    def run_forever(self):
+    def on_quit(self, msg: Message):
+        if msg.nick.lower() in self._users.keys():
+            del self._users[msg.nick.lower()]
+        for func in self._events.get("on_quit", tuple()):
+            func(msg)
+
+    def run(self, origin: str = None):
         while True:
             logger.debug("Starting DGG bot")
-            self.run()
-
-
-main_bot = CustomDiscBot()
+            self.ws.run_forever(origin=origin or self.URL)
 
 
 if __name__ == "__main__":
+    main_bot = CustomDiscBot()
     main_bot.run(main_bot.disc_auth)
