@@ -23,5 +23,5 @@ def enable_cloud_logging():
     log_cloud_handler.setLevel(logging.DEBUG)
     log_cloud_handler.setFormatter(log_formatter)
     logger.addHandler(log_cloud_handler)
-    setup_logging(logger_client)
+    setup_logging(log_cloud_handler)
     logger.info("Cloud logging enabled")
