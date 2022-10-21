@@ -1,20 +1,18 @@
-from discord import Interaction, Message, Emoji
+from discord import Interaction, Message
 from discord.ext.commands import Cog, Bot
 from discord import app_commands
 from discord.app_commands import Choice
+import logging
 import re
 
-from logger import logger
+logger = logging.getLogger(__name__)
 
 
-async def log_reply(ctx: Interaction, response: str, ephemeral=True, debug=False):
+async def log_reply(ctx: Interaction, response: str, ephemeral=True):
     log = f"From {ctx.user}: {response}"
     if ctx.guild:
         log = f"From {ctx.user} in {ctx.guild.name}: {response}"
-    if debug:
-        logger.debug(log)
-    else:
-        logger.info(log)
+    logger.info(log)
     await ctx.response.send_message(response, ephemeral=ephemeral)
 
 
@@ -39,11 +37,11 @@ class OwnerCog(Cog):
         ):
             ref_msg: Message = await msg.channel.fetch_message(ref.message_id)
             if whisper_re := re.match(r"W \*\*(.+):\*\*.+", ref_msg.content):
-                logger.debug(f"Sending a whisper in reply to {ref_msg.id}")
+                logger.info(f"Sending a whisper in reply to {ref_msg.id}")
                 self.bot.dgg_bot.send_privmsg(whisper_re[1], msg.content)
             elif chat_re := re.match(r"\*\*(.+):\*\*.+", ref_msg.content):
                 username = chat_re[1].replace("\\", "")
-                logger.debug(f"Sending a message in reply to {ref_msg.id}")
+                logger.info(f"Sending a message in reply to {ref_msg.id}")
                 self.bot.dgg_bot.send(f"{username} {msg.content}")
             if whisper_re or chat_re:
                 await msg.add_reaction("☑️")
@@ -63,7 +61,7 @@ class OwnerCog(Cog):
             return
         self.bot.dgg_bot.send(message)
         response = f"Message sent {self.bot.dgg_to_disc(self.bot.owner.name, message)}"
-        await log_reply(ctx, response, ephemeral=False, debug=True)
+        await log_reply(ctx, response, ephemeral=False)
 
     @app_commands.command(name="whisper")
     @app_commands.describe(
@@ -77,7 +75,7 @@ class OwnerCog(Cog):
             return
         self.bot.dgg_bot.send_privmsg(user, message)
         response = f"Whisper sent to {self.bot.dgg_to_disc(user, message)}"
-        await log_reply(ctx, response, ephemeral=False, debug=True)
+        await log_reply(ctx, response, ephemeral=False)
 
     @app_commands.command(name="loglevel")
     @app_commands.choices(

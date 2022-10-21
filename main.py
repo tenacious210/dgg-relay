@@ -1,15 +1,21 @@
 from google.cloud import storage
+import google.cloud.logging
 from dggbot import DGGBot, Message, PrivateMessage
 from discord import Intents, User
 from discord.ext import commands
 from threading import Thread
 from queue import Queue
-import json
 import tldextract
+import logging
+import json
 import re
 
-from logger import logger, log_cloud_handler, enable_cloud_logging
 from cogs import OwnerCog, PublicCog
+
+
+logger = logging.getLogger(__name__)
+logging.getLogger("websocket").setLevel(logging.CRITICAL)
+logging.root.disabled = True
 
 
 class CustomDiscBot(commands.Bot):
@@ -20,7 +26,8 @@ class CustomDiscBot(commands.Bot):
             storage_client = storage.Client()
             storage_bucket = storage_client.bucket("tenadev")
             self.config_blob = storage_bucket.blob("dgg-relay/config.json")
-            enable_cloud_logging()
+            logging_client = google.cloud.logging.Client()
+            logging_client.setup_logging()
         intents = Intents.default()
         intents.members = True
         intents.message_content = True
@@ -55,7 +62,7 @@ class CustomDiscBot(commands.Bot):
             json.dump(to_json, config_file, indent=2)
         if self.cloud_sync:
             self.config_blob.upload_from_filename("config.json")
-            logger.debug("Uploaded config file")
+            logger.info("Uploaded config file")
 
     async def setup_hook(self):
         logger.info("Starting Discord bot")
@@ -130,14 +137,14 @@ class CustomDiscBot(commands.Bot):
                         ):
                             relay_message = self.dgg_to_disc(msg.nick, msg.data)
                             self.loop.create_task(user.send(relay_message))
-                            logger.debug(f"Relayed '{relay_message}' to {user}")
+                            logger.info(f"Relayed '{relay_message}' to {user}")
                     else:
                         logger.warning(f"User {user_id} wasn't found")
 
     def relay_privmsg(self, msg: PrivateMessage):
         """Relays private messages to the bot's owner"""
         message = f"W {self.dgg_to_disc(msg.nick, msg.data)}"
-        logger.debug(f"Forwarding whisper to owner: {message}")
+        logger.info(f"Forwarding whisper to owner: {message}")
         self.loop.create_task(self.owner.send(message))
 
 
@@ -163,10 +170,10 @@ class CustomDGGBot(DGGBot):
 
     def run(self, origin: str = None):
         while True:
-            logger.debug("Starting DGG bot")
+            logger.info("Starting DGG bot")
             self.ws.run_forever(origin=origin or self.URL)
 
 
 if __name__ == "__main__":
     main_bot = CustomDiscBot()
-    main_bot.run(main_bot.disc_auth, log_handler=log_cloud_handler)
+    main_bot.run(main_bot.disc_auth, root_logger=True)
