@@ -8,7 +8,7 @@ import json
 import tldextract
 import re
 
-from logger import logger, enable_cloud_logging
+from logger import logger, log_cloud_handler, enable_cloud_logging
 from cogs import OwnerCog, PublicCog
 
 
@@ -169,4 +169,4 @@ class CustomDGGBot(DGGBot):
 
 if __name__ == "__main__":
     main_bot = CustomDiscBot()
-    main_bot.run(main_bot.disc_auth)
+    main_bot.run(main_bot.disc_auth, log_handler=log_cloud_handler)
