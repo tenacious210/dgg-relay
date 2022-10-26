@@ -48,6 +48,6 @@ tena#5751 on Discord
 ## Packages used
 
 * [dgg-bot](https://github.com/Fritz-02/dgg-bot)
-* [py-cord](https://github.com/Pycord-Development/pycord)
+* [discord.py](https://github.com/Rapptz/discord.py)
 * [requests](https://pypi.org/project/requests/)
 * [tldextract](https://pypi.org/project/tldextract/)
