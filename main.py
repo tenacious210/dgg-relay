@@ -14,6 +14,7 @@ from cogs import OwnerCog, PublicCog
 
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 logging.getLogger("websocket").setLevel(logging.CRITICAL)
 logging.root.disabled = True
 
@@ -27,7 +28,7 @@ class CustomDiscBot(commands.Bot):
             storage_bucket = storage_client.bucket("tenadev")
             self.config_blob = storage_bucket.blob("dgg-relay/config.json")
             logging_client = google.cloud.logging.Client()
-            logging_client.setup_logging()
+            logging_client.setup_logging(log_level=logging.DEBUG)
         intents = Intents.default()
         intents.members = True
         intents.message_content = True
@@ -137,14 +138,14 @@ class CustomDiscBot(commands.Bot):
                         ):
                             relay_message = self.dgg_to_disc(msg.nick, msg.data)
                             self.loop.create_task(user.send(relay_message))
-                            logger.info(f"Relayed '{relay_message}' to {user}")
+                            logger.debug(f"Relayed '{relay_message}' to {user}")
                     else:
                         logger.warning(f"User {user_id} wasn't found")
 
     def relay_privmsg(self, msg: PrivateMessage):
         """Relays private messages to the bot's owner"""
         message = f"W {self.dgg_to_disc(msg.nick, msg.data)}"
-        logger.info(f"Forwarding whisper to owner: {message}")
+        logger.debug(f"Forwarding whisper to owner: {message}")
         self.loop.create_task(self.owner.send(message))
 
 

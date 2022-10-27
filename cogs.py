@@ -6,6 +6,7 @@ import logging
 import re
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 async def log_reply(ctx: Interaction, response: str, ephemeral=True):
@@ -37,11 +38,11 @@ class OwnerCog(Cog):
         ):
             ref_msg: Message = await msg.channel.fetch_message(ref.message_id)
             if whisper_re := re.match(r"W \*\*(.+):\*\*.+", ref_msg.content):
-                logger.info(f"Sending a whisper in reply to {ref_msg.id}")
+                logger.debug(f"Sending a whisper in reply to {ref_msg.id}")
                 self.bot.dgg_bot.send_privmsg(whisper_re[1], msg.content)
             elif chat_re := re.match(r"\*\*(.+):\*\*.+", ref_msg.content):
                 username = chat_re[1].replace("\\", "")
-                logger.info(f"Sending a message in reply to {ref_msg.id}")
+                logger.debug(f"Sending a message in reply to {ref_msg.id}")
                 self.bot.dgg_bot.send(f"{username} {msg.content}")
             if whisper_re or chat_re:
                 await msg.add_reaction("☑️")
@@ -61,7 +62,8 @@ class OwnerCog(Cog):
             return
         self.bot.dgg_bot.send(message)
         response = f"Message sent {self.bot.dgg_to_disc(self.bot.owner.name, message)}"
-        await log_reply(ctx, response, ephemeral=False)
+        logger.debug(response)
+        await ctx.response.send_message(response)
 
     @app_commands.command(name="whisper")
     @app_commands.describe(
@@ -75,24 +77,8 @@ class OwnerCog(Cog):
             return
         self.bot.dgg_bot.send_privmsg(user, message)
         response = f"Whisper sent to {self.bot.dgg_to_disc(user, message)}"
-        await log_reply(ctx, response, ephemeral=False)
-
-    @app_commands.command(name="loglevel")
-    @app_commands.choices(
-        level=[
-            Choice(name="warning", value=30),
-            Choice(name="info", value=20),
-            Choice(name="debug", value=10),
-        ]
-    )
-    @app_commands.describe(level="The level to set the logger to")
-    async def loglevel(self, ctx: Interaction, level: int):
-        """(Owner only) Sets the level of the stdout logger"""
-        if not await self.bot.is_owner(ctx.user):
-            await self.owner_error(ctx, "/loglevel")
-            return
-        logger.setLevel(level)
-        await log_reply(ctx, f"Set logging level to {logger.level}")
+        logger.debug(response)
+        await ctx.response.send_message(response)
 
     @app_commands.command(name="sync")
     async def sync_commands(self, ctx: Interaction):
