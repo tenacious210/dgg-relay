@@ -141,6 +141,31 @@ class OwnerCog(Cog):
             response = f"Discord versions: {', '.join(self.bot.emotes.values())}"
         await log_reply(ctx, response)
 
+    config = app_commands.Group(
+        name="config",
+        description=("(Owner only) Modify the bot's config file"),
+    )
+
+    @config.command(name="remove")
+    @app_commands.choices(
+        mode=[
+            Choice(name="phrase", value="phrase"),
+            Choice(name="relay", value="relay"),
+        ]
+    )
+    async def config_remove(self, ctx: Interaction, mode: str, value: str):
+        """Remove a relay or phrase from the config file"""
+        if mode == "phrase" and value in self.bot.phrases:
+            del self.bot.phrases[value]
+            self.bot.save_config()
+            await log_reply(ctx, f"Removed '{value}' from phrases", ephemeral=False)
+        elif mode == "relay" and value in self.bot.relays:
+            del self.bot.relays[value]
+            self.bot.save_config()
+            await log_reply(ctx, f"Removed '{value}' from relays", ephemeral=False)
+        else:
+            await log_reply(ctx, f"Couldn't find '{value}' in {mode}s")
+
 
 class PublicCog(Cog):
     def __init__(self, bot: Bot):
@@ -171,11 +196,11 @@ class PublicCog(Cog):
         """Add a DGG user whose messages get forwarded to this server"""
         relay_channel = self.get_relay_channel(ctx)
         if type(relay_channel) is int:
-            if dgg_username not in self.bot.nicks:
-                self.bot.nicks[dgg_username] = []
+            if dgg_username not in self.bot.relays:
+                self.bot.relays[dgg_username] = []
                 logger.info(f'Added new relay list "{dgg_username}"')
-            if relay_channel not in self.bot.nicks[dgg_username]:
-                self.bot.nicks[dgg_username].append(relay_channel)
+            if relay_channel not in self.bot.relays[dgg_username]:
+                self.bot.relays[dgg_username].append(relay_channel)
                 response = (
                     f"Messages from {dgg_username} will be relayed to {ctx.guild.name}"
                 )
@@ -192,13 +217,15 @@ class PublicCog(Cog):
         """Remove a DGG user's relay from this server"""
         relay_channel = self.get_relay_channel(ctx)
         if type(relay_channel) is int:
-            if relay_channel in self.bot.nicks[dgg_username]:
-                self.bot.nicks[dgg_username].remove(relay_channel)
-                response = f"Removed {dgg_username} relay from {ctx.guild.name}"
-                if not self.bot.nicks[dgg_username]:
-                    self.bot.nicks.pop(dgg_username)
-                    logger.info(f'Removed empty relay list for "{dgg_username}"')
-            else:
+            response = None
+            if dgg_username in self.bot.relays:
+                if relay_channel in self.bot.relays[dgg_username]:
+                    self.bot.relays[dgg_username].remove(relay_channel)
+                    response = f"Removed {dgg_username} relay from {ctx.guild.name}"
+                    if not self.bot.relays[dgg_username]:
+                        self.bot.relays.pop(dgg_username)
+                        logger.info(f'Removed empty relay list for "{dgg_username}"')
+            if not response:
                 response = (
                     f"Error: {dgg_username} isn't being relayed to {ctx.guild.name}"
                 )

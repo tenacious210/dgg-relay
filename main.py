@@ -46,7 +46,7 @@ class CustomDiscBot(commands.Bot):
             config = json.loads(config_file.read())
             config["presence"] = {int(k): v for k, v in config["presence"].items()}
         self.disc_auth, self.dgg_auth = config["disc_auth"], config["dgg_auth"]
-        self.nicks, self.phrases = config["nicks"], config["phrases"]
+        self.relays, self.phrases = config["relays"], config["phrases"]
         self.emotes, self.presence = config["emotes"], config["presence"]
 
     def save_config(self):
@@ -54,7 +54,7 @@ class CustomDiscBot(commands.Bot):
         to_json = {
             "disc_auth": self.disc_auth,
             "dgg_auth": self.dgg_auth,
-            "nicks": self.nicks,
+            "relays": self.relays,
             "phrases": self.phrases,
             "presence": {str(k): v for k, v in self.presence.items()},
             "emotes": self.emotes,
@@ -114,8 +114,8 @@ class CustomDiscBot(commands.Bot):
 
     def relay(self, msg: Message):
         """Takes in a DGG message and relays it to Discord"""
-        if msg.nick.lower() in [nick.lower() for nick in self.nicks.keys()]:
-            for channel_id in self.nicks[msg.nick]:
+        if msg.nick.lower() in [nick.lower() for nick in self.relays.keys()]:
+            for channel_id in self.relays[msg.nick]:
                 if channel := self.get_channel(channel_id):
                     msg_is_nsfw = any([n in msg.data.lower() for n in ("nsfw", "nsfl")])
                     if (not msg_is_nsfw) or (msg_is_nsfw and channel.is_nsfw()):
