@@ -155,6 +155,9 @@ class OwnerCog(Cog):
     )
     async def config_remove(self, ctx: Interaction, mode: str, value: str):
         """Remove a relay or phrase from the config file"""
+        if not await self.bot.is_owner(ctx.user):
+            await self.owner_error(ctx, "/emote list")
+            return
         if mode == "phrase" and value in self.bot.phrases:
             del self.bot.phrases[value]
             self.bot.save_config()
