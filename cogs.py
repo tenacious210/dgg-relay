@@ -22,7 +22,7 @@ class OwnerCog(Cog):
         self.bot = bot
 
     async def owner_error(self, ctx: Interaction, command: str):
-        response = f"Error: Only {self.bot.owner} can use the {command} command"
+        response = f"Error: Only {self.bot.owner} can use the '{command}' command"
         await log_reply(ctx, response)
 
     @Cog.listener()
@@ -190,7 +190,7 @@ class PublicCog(Cog):
                 relay_channel = channel.id
                 break
         if not relay_channel:
-            return f"Error: No #dgg-relay channel found in {ctx.guild.name}"
+            return f"Error: No '#dgg-relay' channel found in '{ctx.guild.name}'"
         return relay_channel
 
     @relay.command(name="add")
@@ -198,20 +198,20 @@ class PublicCog(Cog):
     async def relay_add(self, ctx: Interaction, dgg_username: str):
         """Add a DGG user whose messages get forwarded to this server"""
         relay_channel = self.get_relay_channel(ctx)
-        if type(relay_channel) is int:
-            if dgg_username not in self.bot.relays:
-                self.bot.relays[dgg_username] = []
-                logger.info(f'Added new relay list "{dgg_username}"')
-            if relay_channel not in self.bot.relays[dgg_username]:
-                self.bot.relays[dgg_username].append(relay_channel)
-                response = (
-                    f"Messages from {dgg_username} will be relayed to {ctx.guild.name}"
-                )
-            else:
-                response = f"Error: {dgg_username} is already being relayed to {ctx.guild.name}"
-            self.bot.save_config()
+        if not type(relay_channel) is int:
+            await log_reply(ctx, relay_channel, ephemeral=False)
+            return
+        if dgg_username not in self.bot.relays:
+            self.bot.relays[dgg_username] = []
+            logger.info(f"Added new relay list '{dgg_username}'")
+        if relay_channel not in self.bot.relays[dgg_username]:
+            self.bot.relays[dgg_username].append(relay_channel)
+            response = (
+                f"Messages from '{dgg_username}' will be relayed to '{ctx.guild.name}'"
+            )
         else:
-            response = relay_channel
+            response = f"Error: '{dgg_username}' is already being relayed to '{ctx.guild.name}'"
+        self.bot.save_config()
         await log_reply(ctx, response, ephemeral=False)
 
     @relay.command(name="remove")
@@ -219,22 +219,41 @@ class PublicCog(Cog):
     async def relay_remove(self, ctx: Interaction, dgg_username: str):
         """Remove a DGG user's relay from this server"""
         relay_channel = self.get_relay_channel(ctx)
-        if type(relay_channel) is int:
-            response = None
-            if dgg_username in self.bot.relays:
-                if relay_channel in self.bot.relays[dgg_username]:
-                    self.bot.relays[dgg_username].remove(relay_channel)
-                    response = f"Removed {dgg_username} relay from {ctx.guild.name}"
-                    if not self.bot.relays[dgg_username]:
-                        self.bot.relays.pop(dgg_username)
-                        logger.info(f'Removed empty relay list for "{dgg_username}"')
-            if not response:
-                response = (
-                    f"Error: {dgg_username} isn't being relayed to {ctx.guild.name}"
-                )
-            self.bot.save_config()
-        else:
-            response = relay_channel
+        if not type(relay_channel) is int:
+            await log_reply(ctx, relay_channel, ephemeral=False)
+            return
+        response = None
+        if dgg_username in self.bot.relays:
+            if relay_channel in self.bot.relays[dgg_username]:
+                self.bot.relays[dgg_username].remove(relay_channel)
+                response = f"Removed '{dgg_username}' relay from '{ctx.guild.name}'"
+                if not self.bot.relays[dgg_username]:
+                    self.bot.relays.pop(dgg_username)
+                    logger.info(f"Removed empty relay list for '{dgg_username}'")
+                self.bot.save_config()
+        if not response:
+            response = (
+                f"Error: '{dgg_username}' isn't being relayed to '{ctx.guild.name}'"
+            )
+
+        await log_reply(ctx, response, ephemeral=False)
+
+    @relay.command(name="list")
+    async def relay_list(self, ctx: Interaction):
+        """Lists DGG users currently being relayed to this server."""
+        relay_channel = self.get_relay_channel(ctx)
+        if not type(relay_channel) is int:
+            await log_reply(ctx, relay_channel, ephemeral=False)
+            return
+        relays = []
+        for nickname in self.bot.relays:
+            for channel in self.bot.relays[nickname]:
+                if channel == relay_channel:
+                    relays.append(nickname)
+        relays = "', '".join(relays)
+        response = f"This server gets messages from: '{relays}'"
+        if not relays:
+            response = "No relays are active for this server."
         await log_reply(ctx, response, ephemeral=False)
 
     phrase = app_commands.Group(
@@ -251,10 +270,10 @@ class PublicCog(Cog):
         disc_user = ctx.user.id
         if disc_user not in self.bot.presence.keys():
             self.bot.presence[disc_user] = "off"
-            logger.info(f"Added new user {disc_user} to presence list")
+            logger.info(f"Added new user '{disc_user}' to presence list")
         if phrase not in self.bot.phrases:
             self.bot.phrases[phrase] = []
-            logger.info(f'Added new phrase list for "{phrase}"')
+            logger.info(f"Added new phrase list for '{phrase}'")
         if disc_user not in self.bot.phrases[phrase]:
             self.bot.phrases[phrase].append(disc_user)
             response = f"Forwarding '{phrase}' to {ctx.user}"
@@ -267,16 +286,32 @@ class PublicCog(Cog):
     @app_commands.describe(phrase="The phrase you want to stop being forwarded")
     async def phrase_remove(self, ctx: Interaction, phrase: str):
         """Stop a phrase from being forwarded to you"""
-        disc_user = ctx.user.id
-        if disc_user in self.bot.phrases[phrase]:
-            self.bot.phrases[phrase].remove(disc_user)
-            response = f"No longer forwarding '{phrase}' to {ctx.user}"
-        else:
+        response = None
+        if phrase in self.bot.phrases:
+            if ctx.user.id in self.bot.phrases[phrase]:
+                self.bot.phrases[phrase].remove(ctx.user.id)
+                response = f"No longer forwarding '{phrase}' to {ctx.user}"
+                if not self.bot.phrases[phrase]:
+                    self.bot.phrases.pop(phrase)
+                    logger.info(f"Removed empty phrase list '{phrase}'")
+                self.bot.save_config()
+        if not response:
             response = f"Error: '{phrase}' isn't being forwarded to {ctx.user}"
-        if not self.bot.phrases[phrase]:
-            self.bot.phrases.pop(phrase)
-            logger.info(f'Removed empty phrase list "{phrase}"')
-        self.bot.save_config()
+        await log_reply(ctx, response)
+
+    @phrase.command(name="list")
+    async def phrase_list(self, ctx: Interaction):
+        """List the phrases currently being forwarded to you"""
+        disc_user = ctx.user.id
+        user_phrases = []
+        for phrase in self.bot.phrases:
+            for user_id in self.bot.phrases[phrase]:
+                if user_id == disc_user:
+                    user_phrases.append(phrase)
+        user_phrases = "', '".join(user_phrases)
+        response = f"Your phrases: '{user_phrases}'"
+        if not user_phrases:
+            response = "No phrases are being forwarded to you."
         await log_reply(ctx, response)
 
     @phrase.command(name="detect-dgg-presence")
@@ -291,5 +326,5 @@ class PublicCog(Cog):
         """Change behavior of the /phrase command by controlling when the bot messages you."""
         self.bot.presence[ctx.user.id] = mode
         self.bot.save_config()
-        response = f"Presence detection for {ctx.user.name} set to {mode}"
+        response = f"Presence detection for {ctx.user.name} set to '{mode}'"
         await log_reply(ctx, response)
