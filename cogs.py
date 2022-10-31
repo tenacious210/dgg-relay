@@ -22,7 +22,7 @@ class OwnerCog(Cog):
         self.bot = bot
 
     async def owner_error(self, ctx: Interaction, command: str):
-        response = f"Error: Only {self.bot.owner} can use the '{command}' command"
+        response = f"**Error:** Only {self.bot.owner} can use the '{command}' command"
         await log_reply(ctx, response)
 
     @Cog.listener()
@@ -181,16 +181,16 @@ class PublicCog(Cog):
 
     def get_relay_channel(self, ctx: Interaction) -> int:
         if not ctx.guild:
-            return "Error: This command is only usable in servers"
+            return "**Error:** This command is only usable in servers"
         if "dgg-relay-mod" not in (role.name for role in ctx.user.roles):
-            return "Error: This command requires the 'dgg-relay-mod' role"
+            return "**Error:** This command requires the 'dgg-relay-mod' role"
         relay_channel = None
         for channel in ctx.guild.channels:
             if channel.name == "dgg-relay":
                 relay_channel = channel.id
                 break
         if not relay_channel:
-            return f"Error: No '#dgg-relay' channel found in '{ctx.guild.name}'"
+            return f"**Error:** No '#dgg-relay' channel found in '{ctx.guild.name}'"
         return relay_channel
 
     @relay.command(name="add")
@@ -210,7 +210,7 @@ class PublicCog(Cog):
                 f"Messages from '{dgg_username}' will be relayed to '{ctx.guild.name}'"
             )
         else:
-            response = f"Error: '{dgg_username}' is already being relayed to '{ctx.guild.name}'"
+            response = f"**Error:** '{dgg_username}' is already being relayed to '{ctx.guild.name}'"
         self.bot.save_config()
         await log_reply(ctx, response, ephemeral=False)
 
@@ -233,7 +233,7 @@ class PublicCog(Cog):
                 self.bot.save_config()
         if not response:
             response = (
-                f"Error: '{dgg_username}' isn't being relayed to '{ctx.guild.name}'"
+                f"**Error:** '{dgg_username}' isn't being relayed to '{ctx.guild.name}'"
             )
 
         await log_reply(ctx, response, ephemeral=False)
@@ -278,7 +278,7 @@ class PublicCog(Cog):
             self.bot.phrases[phrase].append(disc_user)
             response = f"Forwarding '{phrase}' to {ctx.user}"
         else:
-            response = f"Error: '{phrase}' is already being forwarded to {ctx.user}"
+            response = f"**Error:** '{phrase}' is already being forwarded to {ctx.user}"
         self.bot.save_config()
         await log_reply(ctx, response)
 
@@ -296,7 +296,7 @@ class PublicCog(Cog):
                     logger.info(f"Removed empty phrase list '{phrase}'")
                 self.bot.save_config()
         if not response:
-            response = f"Error: '{phrase}' isn't being forwarded to {ctx.user}"
+            response = f"**Error:** '{phrase}' isn't being forwarded to {ctx.user}"
         await log_reply(ctx, response)
 
     @phrase.command(name="list")
