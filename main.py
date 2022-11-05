@@ -12,11 +12,10 @@ import re
 
 from cogs import OwnerCog, PublicCog
 
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 logging.getLogger("websocket").setLevel(logging.CRITICAL)
 logging.root.disabled = True
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class CustomDiscBot(commands.Bot):
@@ -114,7 +113,7 @@ class CustomDiscBot(commands.Bot):
 
     def relay(self, msg: Message):
         """Takes in a DGG message and relays it to Discord"""
-        if msg.nick.lower() in [nick.lower() for nick in self.relays.keys()]:
+        if msg.nick in self.relays.keys():
             for channel_id in self.relays[msg.nick]:
                 if channel := self.get_channel(channel_id):
                     msg_is_nsfw = any([n in msg.data.lower() for n in ("nsfw", "nsfl")])

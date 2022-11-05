@@ -196,7 +196,7 @@ class PublicCog(Cog):
     @relay.command(name="add")
     @app_commands.describe(dgg_username="The DGG user you want to relay messages from")
     async def relay_add(self, ctx: Interaction, dgg_username: str):
-        """Add a DGG user whose messages get forwarded to this server"""
+        """Add a DGG user whose messages get forwarded to this server (case sensitive!)"""
         relay_channel = self.get_relay_channel(ctx)
         if not type(relay_channel) is int:
             await log_reply(ctx, relay_channel, ephemeral=False)
@@ -223,7 +223,7 @@ class PublicCog(Cog):
             await log_reply(ctx, relay_channel, ephemeral=False)
             return
         response = None
-        if dgg_username in self.bot.relays:
+        if dgg_username in self.bot.relays.keys():
             if relay_channel in self.bot.relays[dgg_username]:
                 self.bot.relays[dgg_username].remove(relay_channel)
                 response = f"Removed '{dgg_username}' relay from '{ctx.guild.name}'"
@@ -234,6 +234,7 @@ class PublicCog(Cog):
         if not response:
             response = (
                 f"**Error:** '{dgg_username}' isn't being relayed to '{ctx.guild.name}'"
+                " (try the '/relay list' command)"
             )
 
         await log_reply(ctx, response, ephemeral=False)
@@ -266,7 +267,8 @@ class PublicCog(Cog):
         phrase="The phrase you want forwarded to you (most likely your DGG username)"
     )
     async def phrase_add(self, ctx: Interaction, phrase: str):
-        """Add a phrase (usually a username) that will be forwarded to you when it's used in DGG"""
+        """Add a phrase (usually a username) that will be forwarded
+        to you when it's used in DGG (case insensitive)"""
         disc_user = ctx.user.id
         if disc_user not in self.bot.presence.keys():
             self.bot.presence[disc_user] = "off"
@@ -296,7 +298,10 @@ class PublicCog(Cog):
                     logger.info(f"Removed empty phrase list '{phrase}'")
                 self.bot.save_config()
         if not response:
-            response = f"**Error:** '{phrase}' isn't being forwarded to {ctx.user}"
+            response = (
+                f"**Error:** '{phrase}' isn't being forwarded to {ctx.user}"
+                " (try the '/phrase list' command)"
+            )
         await log_reply(ctx, response)
 
     @phrase.command(name="list")
