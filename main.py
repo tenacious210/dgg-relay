@@ -6,7 +6,7 @@ from threading import Thread
 from time import sleep
 
 import google.cloud.logging
-import tldextract
+from tldextract import tldextract
 from dggbot import DGGBot, Message, PrivateMessage
 from discord import Intents, User
 from discord.ext import commands
@@ -36,7 +36,6 @@ class CustomDiscBot(commands.Bot):
         super().__init__(command_prefix="/", intents=intents)
         self.read_config()
         self.dgg_bot = CustomDGGBot(auth_token=self.dgg_auth)
-        self.owner: User = None
 
     def read_config(self):
         """Downloads and reads config file to set attributes"""
@@ -68,6 +67,8 @@ class CustomDiscBot(commands.Bot):
 
     async def setup_hook(self):
         logger.info("Starting Discord bot")
+        app_info = await self.application_info()
+        self.owner: User = app_info.owner
         dgg_bot_thread = Thread(target=self.dgg_bot.run)
         dgg_bot_thread.start()
         dgg_listener_thread = Thread(target=self.dgg_listener)
@@ -75,8 +76,6 @@ class CustomDiscBot(commands.Bot):
         if self.dgg_auth:
             priv_listener_thread = Thread(target=self.dgg_priv_listener)
             priv_listener_thread.start()
-        app_info = await self.application_info()
-        self.owner = app_info.owner
         await self.add_cog(OwnerCog(self))
         await self.add_cog(PublicCog(self))
 
@@ -117,44 +116,48 @@ class CustomDiscBot(commands.Bot):
 
     def relay(self, dgg_messages: list):
         """Takes in a list of DGG messages and relays them to Discord"""
-        msg_queue = {}
+
+        def add_message_to_queue(queue: dict, disc_id: int, message: str):
+            if disc_id not in queue.keys():
+                queue[disc_id] = [""]
+            if len(queue[disc_id][-1]) + len(message) > 2000:
+                queue[disc_id].append("")
+            queue[disc_id][-1] += message
+
+        relay_queue, phrase_queue = {}, {}
         for msg in dgg_messages:
             if msg.nick in self.relays.keys():
+                relay_message = f"{self.dgg_to_disc(msg.nick, msg.data)}\n"
                 for channel_id in self.relays[msg.nick]:
-                    if channel := self.get_channel(channel_id):
-                        msg_is_nsfw = any(
-                            [n in msg.data.lower() for n in ("nsfw", "nsfl")]
-                        )
-                        if (not msg_is_nsfw) or (msg_is_nsfw and channel.is_nsfw()):
-                            relay_message = self.dgg_to_disc(msg.nick, msg.data)
-                        else:
-                            relay_message = f"**{msg.nick}:** _Censored for nsfw tag_"
-                        self.loop.create_task(channel.send(relay_message))
-                        logger.debug(f"Relayed '{relay_message}' to {channel.guild}")
-                    else:
-                        logger.warning(f"Channel {channel_id} wasn't found")
+                    add_message_to_queue(relay_queue, channel_id, relay_message)
             for phrase in self.phrases.keys():
-                lower_phrase = phrase.lower()
-                if re.search(rf"\b{lower_phrase}\b", msg.data.lower()):
+                if re.search(rf"\b{phrase.lower()}\b", msg.data.lower()):
+                    phrase_message = f"{self.dgg_to_disc(msg.nick, msg.data)}\n"
                     for user_id in self.phrases[phrase]:
-                        mention = f"{self.dgg_to_disc(msg.nick, msg.data)}\n"
-                        if user_id not in msg_queue.keys():
-                            msg_queue[user_id] = [""]
-                        if len(msg_queue[user_id][-1]) + len(mention) > 2000:
-                            msg_queue[user_id].append("")
-                        msg_queue[user_id][-1] += mention
-        for user_id, messages in msg_queue.items():
-            if user := self.get_user(user_id):
-                if (
-                    self.presence[user_id] == "on"
-                    and lower_phrase not in self.dgg_bot.users.keys()
-                    or self.presence[user_id] == "off"
-                ):
-                    for message in messages:
-                        self.loop.create_task(user.send(message[:-1]))
-                        logger.debug(f"Relayed '{message[:-1]}' to {user}")
-            else:
+                        add_message_to_queue(phrase_queue, user_id, phrase_message)
+        for channel_id, r_messages in relay_queue.items():
+            if not (channel := self.get_channel(channel_id)):
+                logger.warning(f"Channel {channel_id} wasn't found")
+                continue
+            for message in r_messages:
+                msg_is_nsfw = any([n in message.lower() for n in ("nsfw", "nsfl")])
+                if msg_is_nsfw and not channel.is_nsfw():
+                    logger.debug(f"Skipped relay to {channel.guild} due to nsfw tag")
+                    continue
+                self.loop.create_task(channel.send(message[:-1]))
+                logger.debug(f"Relayed '{message[:-1]}' to {channel.guild}")
+        for user_id, p_messages in phrase_queue.items():
+            if not (user := self.get_user(user_id)):
                 logger.warning(f"User {user_id} wasn't found")
+                continue
+            if (
+                self.presence[user_id] == "on"
+                and phrase.lower() not in self.dgg_bot.users.keys()
+                or self.presence[user_id] == "off"
+            ):
+                for message in p_messages:
+                    self.loop.create_task(user.send(message[:-1]))
+                    logger.debug(f"Relayed '{message[:-1]}' to {user}")
 
     def relay_privmsg(self, msg: PrivateMessage):
         """Relays private messages to the bot's owner"""
