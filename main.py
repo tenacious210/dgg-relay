@@ -1,16 +1,16 @@
-from threading import Thread
-from queue import Queue
-from time import sleep
-import logging
 import json
+import logging
 import re
+from queue import Queue
+from threading import Thread
+from time import sleep
 
-from google.cloud import storage
 import google.cloud.logging
+import tldextract
 from dggbot import DGGBot, Message, PrivateMessage
 from discord import Intents, User
 from discord.ext import commands
-import tldextract
+from google.cloud import storage
 
 from cogs import OwnerCog, PublicCog
 
@@ -21,7 +21,7 @@ logger.setLevel(logging.DEBUG)
 
 
 class CustomDiscBot(commands.Bot):
-    cloud_sync = True
+    cloud_sync = False
 
     def __init__(self):
         if self.cloud_sync:
@@ -82,9 +82,8 @@ class CustomDiscBot(commands.Bot):
 
     def dgg_to_disc(self, dgg_nick: str, dgg_txt: str):
         """Converts DGG emotes/links to Discord ones"""
-        for link in set(
-            re.findall(r"(?:(?:https?|ftp):\/\/)?[\w/\-?=%.]+\.[\w/\-&?=%.]+", dgg_txt)
-        ):
+        link_re = r"(?:(?:https?|ftp):\/\/)?[\w/\-?=%.]+\.[\w/\-&?=%.]+"
+        for link in set(re.findall(link_re, dgg_txt)):
             url = tldextract.extract(link)
             if url.domain and url.suffix:
                 if not re.search(r"\Ahttps?://", link):
@@ -116,10 +115,10 @@ class CustomDiscBot(commands.Bot):
             msg = self.dgg_bot.privmsg_queue.get()
             self.relay_privmsg(msg)
 
-    def relay(self, messages: list):
+    def relay(self, dgg_messages: list):
         """Takes in a list of DGG messages and relays them to Discord"""
         msg_queue = {}
-        for msg in messages:
+        for msg in dgg_messages:
             if msg.nick in self.relays.keys():
                 for channel_id in self.relays[msg.nick]:
                     if channel := self.get_channel(channel_id):
@@ -140,17 +139,20 @@ class CustomDiscBot(commands.Bot):
                     for user_id in self.phrases[phrase]:
                         mention = f"{self.dgg_to_disc(msg.nick, msg.data)}\n"
                         if user_id not in msg_queue.keys():
-                            msg_queue[user_id] = ""
-                        msg_queue[user_id] += mention
-        for user_id, message in msg_queue.items():
+                            msg_queue[user_id] = [""]
+                        if len(msg_queue[user_id][-1]) + len(mention) > 2000:
+                            msg_queue[user_id].append("")
+                        msg_queue[user_id][-1] += mention
+        for user_id, messages in msg_queue.items():
             if user := self.get_user(user_id):
                 if (
                     self.presence[user_id] == "on"
                     and lower_phrase not in self.dgg_bot.users.keys()
                     or self.presence[user_id] == "off"
                 ):
-                    self.loop.create_task(user.send(message[:-1]))
-                    logger.debug(f"Relayed '{message[:-1]}' to {user}")
+                    for message in messages:
+                        self.loop.create_task(user.send(message[:-1]))
+                        logger.debug(f"Relayed '{message[:-1]}' to {user}")
             else:
                 logger.warning(f"User {user_id} wasn't found")
 
