@@ -21,7 +21,7 @@ logger.setLevel(logging.DEBUG)
 
 
 class CustomDiscBot(commands.Bot):
-    cloud_sync = False
+    cloud_sync = True
 
     def __init__(self):
         if self.cloud_sync:
