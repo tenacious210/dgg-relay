@@ -132,8 +132,16 @@ class CustomDiscBot(commands.Bot):
                     add_message_to_queue(relay_queue, channel_id, relay_message)
             for phrase in self.phrases.keys():
                 if re.search(rf"\b{phrase.lower()}\b", msg.data.lower()):
-                    phrase_message = f"{self.dgg_to_disc(msg.nick, msg.data)}\n"
                     for user_id in self.phrases[phrase]:
+                        presence_check = (
+                            self.presence[user_id] == "on"
+                            and phrase.lower() not in self.dgg_bot.users.keys()
+                            or self.presence[user_id] == "off"
+                        )
+                        if not presence_check:
+                            logger.debug(f"Skipped relay to {user_id} due to presence")
+                            continue
+                        phrase_message = f"{self.dgg_to_disc(msg.nick, msg.data)}\n"
                         add_message_to_queue(phrase_queue, user_id, phrase_message)
         for channel_id, r_messages in relay_queue.items():
             if not (channel := self.get_channel(channel_id)):
@@ -150,14 +158,9 @@ class CustomDiscBot(commands.Bot):
             if not (user := self.get_user(user_id)):
                 logger.warning(f"User {user_id} wasn't found")
                 continue
-            if (
-                self.presence[user_id] == "on"
-                and phrase.lower() not in self.dgg_bot.users.keys()
-                or self.presence[user_id] == "off"
-            ):
-                for message in p_messages:
-                    self.loop.create_task(user.send(message[:-1]))
-                    logger.debug(f"Relayed '{message[:-1]}' to {user}")
+            for message in p_messages:
+                self.loop.create_task(user.send(message[:-1]))
+                logger.debug(f"Relayed '{message[:-1]}' to {user}")
 
     def relay_privmsg(self, msg: PrivateMessage):
         """Relays private messages to the bot's owner"""
