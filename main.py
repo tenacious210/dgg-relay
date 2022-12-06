@@ -127,7 +127,7 @@ class CustomDiscBot(commands.Bot):
                     msg_data = json.loads(msg)
                     if msg_data["type"] == "dggApi:streamInfo":
                         yt_info = msg_data["data"]["streams"]["youtube"]
-                        await self.live_notify(yt_info)
+                        self.live_notify(yt_info)
             except ConnectionClosed:
                 logger.info(f"Websocket closed, restarting...")
                 continue
