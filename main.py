@@ -1,16 +1,19 @@
 import json
 import logging
 import re
+import asyncio
 from queue import Queue
 from threading import Thread
 from time import sleep
 
 import google.cloud.logging
+from google.cloud import storage
 from tldextract import tldextract
-from dggbot import DGGBot, Message, PrivateMessage
+from tenadggbot import DGGBot, Message, PrivateMessage
 from discord import Intents, User
 from discord.ext import commands
-from google.cloud import storage
+from websockets.client import connect
+from websockets.exceptions import ConnectionClosed
 
 from cogs import OwnerCog, PublicCog
 
@@ -44,10 +47,10 @@ class CustomDiscBot(commands.Bot):
             logger.info("Downloaded config file")
         with open("config.json", "r") as config_file:
             config = json.loads(config_file.read())
-            config["presence"] = {int(k): v for k, v in config["presence"].items()}
         self.disc_auth, self.dgg_auth = config["disc_auth"], config["dgg_auth"]
         self.relays, self.phrases = config["relays"], config["phrases"]
-        self.emotes, self.presence = config["emotes"], config["presence"]
+        self.emotes, self.live = config["emotes"], config["live"]
+        self.presence = {int(k): v for k, v in config["presence"].items()}
 
     def save_config(self):
         """Saves attributes to the config file and uploads them"""
@@ -57,6 +60,7 @@ class CustomDiscBot(commands.Bot):
             "relays": self.relays,
             "phrases": self.phrases,
             "presence": {str(k): v for k, v in self.presence.items()},
+            "live": self.live,
             "emotes": self.emotes,
         }
         with open("config.json", "w") as config_file:
@@ -69,13 +73,11 @@ class CustomDiscBot(commands.Bot):
         logger.info("Starting Discord bot")
         app_info = await self.application_info()
         self.owner: User = app_info.owner
-        dgg_bot_thread = Thread(target=self.dgg_bot.run)
-        dgg_bot_thread.start()
-        dgg_listener_thread = Thread(target=self.dgg_listener)
-        dgg_listener_thread.start()
+        Thread(target=asyncio.run, args=[self.dgg_bot.run()]).start()
+        Thread(target=self.dgg_listener).start()
         if self.dgg_auth:
-            priv_listener_thread = Thread(target=self.dgg_priv_listener)
-            priv_listener_thread.start()
+            Thread(target=self.dgg_priv_listener).start()
+        Thread(target=asyncio.run, args=[self.live_listener()]).start()
         await self.add_cog(OwnerCog(self))
         await self.add_cog(PublicCog(self))
 
@@ -113,6 +115,38 @@ class CustomDiscBot(commands.Bot):
         while True:
             msg = self.dgg_bot.privmsg_queue.get()
             self.relay_privmsg(msg)
+
+    async def live_listener(self):
+        async for ws in connect(
+            "wss://live.destiny.gg",
+            origin="https://www.destiny.gg",
+            ping_timeout=None,
+        ):
+            try:
+                async for msg in ws:
+                    msg_data = json.loads(msg)
+                    if msg_data["type"] == "dggApi:streamInfo":
+                        yt_info = msg_data["data"]["streams"]["youtube"]
+                        await self.live_notify(yt_info)
+            except ConnectionClosed:
+                logger.info(f"Websocket closed, restarting...")
+                continue
+
+    def live_notify(self, yt_info: dict):
+        if yt_info["live"] and not self.live["id"]:
+            logger.info("Stream started, sending notifications")
+            for channel_id in self.live["channels"]:
+                if not (channel := self.get_channel(channel_id)):
+                    logger.warning(f"LN channel {channel_id} wasn't found")
+                    continue
+                live_msg = f"**Destiny is live!** https://youtu.be/{yt_info['id']}"
+                self.loop.create_task(channel.send(live_msg))
+            self.live["id"] = yt_info["id"]
+            self.save_config()
+        elif self.live["id"] and not yt_info["live"]:
+            self.live["id"] = None
+            logger.info("Stream ended")
+            self.save_config()
 
     def relay(self, dgg_messages: list):
         """Takes in a list of DGG messages and relays them to Discord"""
@@ -175,24 +209,13 @@ class CustomDGGBot(DGGBot):
         self.msg_queue = Queue()
         self.privmsg_queue = Queue()
 
-    def on_msg(self, msg: Message):
-        super().on_msg(msg)
+    async def on_message(self, msg: Message):
+        await super().on_message(msg)
         self.msg_queue.put(msg)
 
-    def on_privmsg(self, msg: PrivateMessage):
-        super().on_privmsg(msg)
+    async def on_privmsg(self, msg: PrivateMessage):
+        await super().on_privmsg(msg)
         self.privmsg_queue.put(msg)
-
-    def on_quit(self, msg: Message):
-        if msg.nick.lower() in self._users.keys():
-            del self._users[msg.nick.lower()]
-        for func in self._events.get("on_quit", tuple()):
-            func(msg)
-
-    def run(self, origin: str = None):
-        while True:
-            logger.info("Starting DGG bot")
-            self.ws.run_forever(origin=origin or self.URL)
 
 
 if __name__ == "__main__":

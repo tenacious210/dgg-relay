@@ -39,11 +39,11 @@ class OwnerCog(Cog):
             ref_msg: Message = await msg.channel.fetch_message(ref.message_id)
             if whisper_re := re.match(r"W \*\*(.+):\*\*.+", ref_msg.content):
                 logger.debug(f"Sending a whisper in reply to {ref_msg.id}")
-                self.bot.dgg_bot.send_privmsg(whisper_re[1], msg.content)
+                await self.bot.dgg_bot.send_privmsg(whisper_re[1], msg.content)
             elif chat_re := re.match(r"\*\*(.+):\*\*.+", ref_msg.content):
                 username = chat_re[1].replace("\\", "")
                 logger.debug(f"Sending a message in reply to {ref_msg.id}")
-                self.bot.dgg_bot.send(f"{username} {msg.content}")
+                await self.bot.dgg_bot.send(f"{username} {msg.content}")
             if whisper_re or chat_re:
                 await msg.add_reaction("☑️")
                 for emote in self.bot.emotes.keys():
@@ -60,7 +60,7 @@ class OwnerCog(Cog):
         if not await self.bot.is_owner(ctx.user):
             await self.owner_error(ctx, "/send")
             return
-        self.bot.dgg_bot.send(message)
+        await self.bot.dgg_bot.send(message)
         response = f"Message sent {self.bot.dgg_to_disc(self.bot.owner.name, message)}"
         logger.debug(response)
         await ctx.response.send_message(response)
@@ -75,7 +75,7 @@ class OwnerCog(Cog):
         if not await self.bot.is_owner(ctx.user):
             await self.owner_error(ctx, "/whisper")
             return
-        self.bot.dgg_bot.send_privmsg(user, message)
+        await self.bot.dgg_bot.send_privmsg(user, message)
         response = f"Whisper sent to {self.bot.dgg_to_disc(user, message)}"
         logger.debug(response)
         await ctx.response.send_message(response)
@@ -255,6 +255,31 @@ class PublicCog(Cog):
         response = f"This server gets messages from: '{relays}'"
         if not relays:
             response = "No relays are active for this server."
+        await log_reply(ctx, response, ephemeral=False)
+
+    @app_commands.command(name="live-notifications")
+    @app_commands.describe(mode="Set to 'on' to receive live notifications")
+    @app_commands.choices(
+        mode=[
+            Choice(name="on", value="on"),
+            Choice(name="off", value="off"),
+        ]
+    )
+    async def live_notifications(self, ctx: Interaction, mode: str):
+        """Enable or disable notifications for when Destiny goes live"""
+        relay_channel = self.get_relay_channel(ctx)
+        if not type(relay_channel) is int:
+            await log_reply(ctx, relay_channel, ephemeral=False)
+            return
+        if mode == "on":
+            if relay_channel not in self.bot.live["channels"]:
+                self.bot.live["channels"].append(relay_channel)
+                self.bot.save_config()
+        elif mode == "off":
+            if relay_channel in self.bot.live["channels"]:
+                self.bot.live["channels"].remove(relay_channel)
+                self.bot.save_config()
+        response = f"Live notifications turned {mode} for {ctx.guild.name}"
         await log_reply(ctx, response, ephemeral=False)
 
     phrase = app_commands.Group(

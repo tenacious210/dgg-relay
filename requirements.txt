@@ -1,4 +1,4 @@
-dgg-bot
+tena-dgg-bot
 discord.py
 requests
 tldextract
