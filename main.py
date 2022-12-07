@@ -17,7 +17,7 @@ from websockets.exceptions import ConnectionClosed
 
 from cogs import OwnerCog, PublicCog
 
-logging.getLogger("websocket").setLevel(logging.CRITICAL)
+logging.getLogger("asyncio").setLevel(logging.CRITICAL)
 logging.root.disabled = True
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -128,11 +128,9 @@ class CustomDiscBot(commands.Bot):
                     if msg_data["type"] == "dggApi:streamInfo":
                         yt_info = msg_data["data"]["streams"]["youtube"]
                         self.live_notify(yt_info)
-                    sleep(1)
             except ConnectionClosed:
                 logger.info(f"Websocket closed, restarting...")
                 continue
-            sleep(1)
 
     def live_notify(self, yt_info: dict):
         if yt_info["live"] and not self.live["id"]:
