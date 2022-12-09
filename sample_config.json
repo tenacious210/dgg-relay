@@ -16,9 +16,12 @@
   },
   "live": {
     "id": null,
-    "channels": [
-      964326599002574869
-    ]
+    "channels": {
+      "964326599002574869": {
+        "enabled": true,
+        "role": null
+      }
+    }
   },
   "emotes": {
     "MiyanoHype": "<a:MiyanoHype:948352395467976776>"
