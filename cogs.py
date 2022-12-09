@@ -1,7 +1,7 @@
 import logging
 import re
 
-from discord import Interaction, Message, app_commands
+from discord import Interaction, Message, app_commands, Role
 from discord.app_commands import Choice
 from discord.ext.commands import Bot, Cog
 
@@ -174,11 +174,6 @@ class PublicCog(Cog):
     def __init__(self, bot: Bot):
         self.bot = bot
 
-    relay = app_commands.Group(
-        name="relay",
-        description="Relays DGG messages to servers",
-    )
-
     def get_relay_channel(self, ctx: Interaction) -> int:
         if not ctx.guild:
             return "**Error:** This command is only usable in servers"
@@ -192,6 +187,11 @@ class PublicCog(Cog):
         if not relay_channel:
             return f"**Error:** No '#dgg-relay' channel found in '{ctx.guild.name}'"
         return relay_channel
+
+    relay = app_commands.Group(
+        name="relay",
+        description="Relays DGG messages to servers",
+    )
 
     @relay.command(name="add")
     @app_commands.describe(dgg_username="The DGG user you want to relay messages from")
@@ -257,29 +257,53 @@ class PublicCog(Cog):
             response = "No relays are active for this server."
         await log_reply(ctx, response, ephemeral=False)
 
-    @app_commands.command(name="live-notifications")
-    @app_commands.describe(mode="Set to 'on' to receive live notifications")
-    @app_commands.choices(
-        mode=[
-            Choice(name="on", value="on"),
-            Choice(name="off", value="off"),
-        ]
+    live_notifications = app_commands.Group(
+        name="live-notifications",
+        description="Configure live notifications for Destiny",
     )
-    async def live_notifications(self, ctx: Interaction, mode: str):
-        """Enable or disable notifications for when Destiny goes live"""
+
+    @live_notifications.command(name="on")
+    async def live_notifications_on(self, ctx: Interaction):
+        """Enable live notifications for this server"""
         relay_channel = self.get_relay_channel(ctx)
         if not type(relay_channel) is int:
             await log_reply(ctx, relay_channel, ephemeral=False)
             return
-        if mode == "on":
-            if relay_channel not in self.bot.live["channels"]:
-                self.bot.live["channels"].append(relay_channel)
-                self.bot.save_config()
-        elif mode == "off":
-            if relay_channel in self.bot.live["channels"]:
-                self.bot.live["channels"].remove(relay_channel)
-                self.bot.save_config()
-        response = f"Live notifications turned {mode} for {ctx.guild.name}"
+        if relay_channel not in self.bot.live["channels"].keys():
+            self.bot.live["channels"][relay_channel] = {"role": None}
+        self.bot.live["channels"][relay_channel]["enabled"] = True
+        self.bot.save_config()
+        response = f"Live notifications enabled for {ctx.guild.name}"
+        await log_reply(ctx, response, ephemeral=False)
+
+    @live_notifications.command(name="off")
+    async def live_notifications_off(self, ctx: Interaction):
+        """Disable live notifications for this server"""
+        relay_channel = self.get_relay_channel(ctx)
+        if not type(relay_channel) is int:
+            await log_reply(ctx, relay_channel, ephemeral=False)
+            return
+        if relay_channel not in self.bot.live["channels"].keys():
+            self.bot.live["channels"][relay_channel] = {"role": None}
+        self.bot.live["channels"][relay_channel]["enabled"] = False
+        self.bot.save_config()
+        response = f"Live notifications disabled for {ctx.guild.name}"
+        await log_reply(ctx, response, ephemeral=False)
+
+    @live_notifications.command(name="role")
+    async def live_notifications_role(self, ctx: Interaction, role: Role):
+        """Set a role that gets pinged for live notifications"""
+        relay_channel = self.get_relay_channel(ctx)
+        if not type(relay_channel) is int:
+            await log_reply(ctx, relay_channel, ephemeral=False)
+            return
+        if relay_channel not in self.bot.live["channels"].keys():
+            self.bot.live["channels"][relay_channel] = {"enabled": True}
+        self.bot.live["channels"][relay_channel]["role"] = role.id
+        self.bot.save_config()
+        response = (
+            f'"<@&{role.id}>" will be pinged for live notifications in {ctx.guild.name}'
+        )
         await log_reply(ctx, response, ephemeral=False)
 
     phrase = app_commands.Group(

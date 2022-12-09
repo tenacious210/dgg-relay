@@ -51,16 +51,18 @@ class CustomDiscBot(commands.Bot):
         self.relays, self.phrases = config["relays"], config["phrases"]
         self.emotes, self.live = config["emotes"], config["live"]
         self.presence = {int(k): v for k, v in config["presence"].items()}
+        self.live["channels"] = {int(k): v for k, v in self.live["channels"].items()}
 
     def save_config(self):
         """Saves attributes to the config file and uploads them"""
+        json_channels = {str(k): v for k, v in self.live["channels"].items()}
         to_json = {
             "disc_auth": self.disc_auth,
             "dgg_auth": self.dgg_auth,
             "relays": self.relays,
             "phrases": self.phrases,
             "presence": {str(k): v for k, v in self.presence.items()},
-            "live": self.live,
+            "live": {"id": self.live["id"], "channels": json_channels},
             "emotes": self.emotes,
         }
         with open("config.json", "w") as config_file:
@@ -139,7 +141,12 @@ class CustomDiscBot(commands.Bot):
                 if not (channel := self.get_channel(channel_id)):
                     logger.warning(f"LN channel {channel_id} wasn't found")
                     continue
-                live_msg = f"**Destiny is live!** https://youtu.be/{yt_info['id']}"
+                if not self.live["channels"][channel_id]["enabled"]:
+                    continue
+                live_msg = ""
+                if role := self.live["channels"][channel_id]["role"]:
+                    live_msg += f"<@&{role}> "
+                live_msg += f"**Destiny is live!** https://youtu.be/{yt_info['id']}"
                 self.loop.create_task(channel.send(live_msg))
             self.live["id"] = yt_info["id"]
             self.save_config()
