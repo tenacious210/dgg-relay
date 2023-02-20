@@ -1,18 +1,17 @@
 {
-  "disc_auth": null,
-  "dgg_auth": null,
+  "disc_auth": "",
+  "owner_id": 504613278769479681,
   "relays": {
-    "Destiny": [
-      964326599002574869
-    ]
+    "Destiny": [964326599002574869]
   },
   "phrases": {
-    "tena": [
-      504613278769479681
-    ]
+    "tena": [504613278769479681]
   },
-  "presence": {
-    "504613278769479681": "off"
+  "user_prefs": {
+    "504613278769479681": {
+      "detect_presence": false,
+      "ignores": ["Emotes"]
+    }
   },
   "live": {
     "id": null,
