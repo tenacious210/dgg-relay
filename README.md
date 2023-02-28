@@ -1,45 +1,53 @@
 # DGG Relay
 
-DGG Relay is a Discord bot that relays messages from https://chat.destiny.gg/.
+DGG Relay is a Discord bot that relays messages from https://chat.destiny.gg/
 
 ## Getting Started
 
 * [Click here](https://discord.com/api/oauth2/authorize?client_id=944248509937352764&permissions=2147863552&scope=bot%20applications.commands) to add DGG Relay to one of your servers.
-* To get started, type a forward slash ( / ) in any channel with DGG Relay to view all available commands.
+* Create a channel in your server called **#dgg-relay**
+* Create a role in your server called **dgg-relay-mod** and grant it to yourself
+* Optional: Set the **#dgg-relay** channel to **adult-only** to include nsfw/nsfl messages.
+* Type a forward slash ( / ) in any channel with DGG Relay to view all available commands.
 
 ## Commands
 
-### /relay (mode) (dgg_username)
-Relays all messages from a DGG user to a server. To use this command, set up the following on your server:
-* A channel called **#dgg-relay**
-* A role named **dgg-relay-mod**
-* Optional: Set the **#dgg-relay** channel to adult-only to include nsfw messages.
+### /relay
+Relays all messages from a DGG user to a server.
+
+All commands:
+
+![image](https://user-images.githubusercontent.com/4806938/221872244-1d7958ad-4a28-422d-afb8-4b56a067b5c6.png)
 
 Example:
 
-![image](https://user-images.githubusercontent.com/4806938/170265102-1a178696-d9a8-455f-a9ed-1cd49d17f196.png)
+![image](https://user-images.githubusercontent.com/4806938/221875210-f6118cd5-6747-42b6-a070-38b74ff915bc.png)
 
-Results in:
+Results (in a server):
 
-![image](https://user-images.githubusercontent.com/4806938/170265661-baada230-d176-4794-9f01-b7c9a21f8351.png)
+![image](https://user-images.githubusercontent.com/4806938/221875454-eb8ef676-917f-4be1-a400-195b472077d9.png)
 
-### /phrase (mode) (phrase)
-Adds a phrase (usually a username) that will be searched for and relayed to you when it's used in DGG.
+### /phrase
+Adds a phrase (usually a username) that will be searched for and DMed to you when it's used in DGG.
+
+All commands:
+
+![image](https://user-images.githubusercontent.com/4806938/221875739-2d3e2ec7-e785-43eb-81b8-0f795dd986a3.png)
 
 Example:
 
-![image](https://user-images.githubusercontent.com/4806938/170302052-42162989-dc04-4a1c-bd14-7ddd1fbcb5ac.png)
+![image](https://user-images.githubusercontent.com/4806938/221876079-64a710a0-141f-42b8-b861-9480de3228e9.png)
 
-Results in:
+Results (in DMs):
 
-![image](https://user-images.githubusercontent.com/4806938/170297420-56074012-7bfa-4917-b0e4-617c555b4748.png)
+![image](https://user-images.githubusercontent.com/4806938/221876262-d363d4b6-2d97-4430-80ab-715d26eb7d49.png)
 
-### /phrasemode (mode)
+### /phrase detect-dgg-presence (True|False)
 Changes when phrases from the /phrase command are relayed to you.
+
 Options:
-* **on (default)**: Always forward phrases
-* **auto**: Only relay phrases when not present in DGG. For example, when tena_ logs in to DGG chat, mentions of the phrase "tena_" will not be relayed. 
-* **off**: Disables forwarded phrases
+* **False (default)**: Always forward phrases
+* **True**: Only relay phrases when not present in DGG. For example, when tena logs in to DGG chat, mentions of "tena" will not be DMed. 
 
 ## Authors
 
