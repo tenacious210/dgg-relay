@@ -8,7 +8,7 @@ import time
 import google.cloud.logging
 from google.cloud import storage
 from tldextract import tldextract
-from dggbot import DGGChat, Message, DGGLive, StreamInfo
+from dggbot import DGGChat, Message
 from discord import Intents, User
 from discord.ext import commands
 
@@ -18,32 +18,6 @@ logging.getLogger("websocket").setLevel(logging.CRITICAL)
 logging.root.disabled = True
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-
-
-class CustomDGGChat(DGGChat):
-    def __init__(self):
-        super().__init__()
-        self.msg_queue = Queue()
-
-    def on_msg(self, msg: Message):
-        super().on_msg(msg)
-        self.msg_queue.put(msg)
-
-
-class CustomDGGLive(DGGLive):
-    def __init__(self):
-        super().__init__()
-        self.live_queue = Queue()
-
-    def on_streaminfo(self, streaminfo: StreamInfo):
-        super().on_streaminfo(streaminfo)
-        self.live_queue.put(streaminfo)
-
-    def run_forever(self, origin: str = None, sleep: int = 2):
-        """Runs the client forever by automatically reconnecting the websocket."""
-        while True:
-            self.run(origin=origin or self.ORIGIN)
-            time.sleep(sleep)
 
 
 class CustomDiscBot(commands.Bot):
@@ -61,8 +35,12 @@ class CustomDiscBot(commands.Bot):
         intents.message_content = True
         super().__init__(command_prefix="/", intents=intents)
         self.read_cfg()
-        self.dgg_chat = CustomDGGChat()
-        self.dgg_live = CustomDGGLive()
+        self.msg_queue = Queue()
+        self.dgg_chat = DGGChat()
+
+        @self.dgg_chat.event()
+        def on_msg(msg: Message):
+            self.msg_queue.put(msg)
 
     async def setup_hook(self):
         logger.info("Starting Discord bot")
@@ -70,8 +48,6 @@ class CustomDiscBot(commands.Bot):
         self.owner: User = app_info.owner
         Thread(target=self.dgg_chat.run_forever).start()
         Thread(target=self.dgg_thread).start()
-        Thread(target=self.dgg_live.run_forever).start()
-        Thread(target=self.live_thread).start()
         await self.add_cog(OwnerCog(self))
         await self.add_cog(PublicCog(self))
 
@@ -128,37 +104,11 @@ class CustomDiscBot(commands.Bot):
             disc_txt = f"||{disc_txt}||"
         return f"**{dgg_nick}:** {disc_txt}"
 
-    def live_thread(self):
-        while True:
-            time.sleep(5)
-            self.live_notify(self.dgg_live.live_queue.get())
-
-    def live_notify(self, yt_info: StreamInfo):
-        if yt_info.live and not self.live["id"]:
-            logger.info("Stream started, sending notifications")
-            for channel_id in self.live["channels"]:
-                if not (channel := self.get_channel(channel_id)):
-                    logger.warning(f"LN channel {channel_id} wasn't found")
-                    continue
-                if not self.live["channels"][channel_id]["enabled"]:
-                    continue
-                live_msg = ""
-                if role := self.live["channels"][channel_id]["role"]:
-                    live_msg += f"<@&{role}> "
-                live_msg += f"**Destiny is live!** https://youtu.be/{yt_info.id}"
-                self.loop.create_task(channel.send(live_msg))
-            self.live["id"] = yt_info.id
-            self.save_cfg()
-        elif self.live["id"] and not yt_info.live:
-            self.live["id"] = None
-            logger.info("Stream ended")
-            self.save_cfg()
-
     def dgg_thread(self):
         while True:
             messages = []
-            for _ in range(self.dgg_chat.msg_queue.qsize()):
-                messages.append(self.dgg_chat.msg_queue.get())
+            for _ in range(self.msg_queue.qsize()):
+                messages.append(self.msg_queue.get())
             self.relay(messages)
             time.sleep(30)
 
