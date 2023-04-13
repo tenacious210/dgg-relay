@@ -47,7 +47,7 @@ class CustomDGGLive(DGGLive):
 
 
 class CustomDiscBot(commands.Bot):
-    cloud_sync = True
+    cloud_sync = False
 
     def __init__(self):
         if self.cloud_sync:
@@ -93,7 +93,6 @@ class CustomDiscBot(commands.Bot):
         json_channels = {str(k): v for k, v in self.live["channels"].items()}
         to_json = {
             "disc_auth": self.disc_auth,
-            "owner_id": self.cfg_owner_id,
             "relays": self.relays,
             "phrases": self.phrases,
             "user_prefs": {str(k): v for k, v in self.user_prefs.items()},
