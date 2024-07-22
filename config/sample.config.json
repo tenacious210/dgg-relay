@@ -1,0 +1,19 @@
+{
+  "disc_auth": "",
+  "owner_id": 504613278769479681,
+  "relays": {
+    "Destiny": [964326599002574869]
+  },
+  "phrases": {
+    "tena": [504613278769479681]
+  },
+  "user_prefs": {
+    "504613278769479681": {
+      "detect_presence": false,
+      "ignores": ["Emotes"]
+    }
+  },
+  "emotes": {
+    "MiyanoHype": "<a:MiyanoHype:948352395467976776>"
+  }
+}

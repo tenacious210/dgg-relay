@@ -5,8 +5,6 @@ from queue import Queue
 from threading import Thread
 import time
 
-import google.cloud.logging
-from google.cloud import storage
 from tldextract import tldextract
 from dggbot import DGGChat, Message
 from discord import Intents, User
@@ -21,15 +19,7 @@ logger.setLevel(logging.DEBUG)
 
 
 class CustomDiscBot(commands.Bot):
-    cloud_sync = True
-
     def __init__(self):
-        if self.cloud_sync:
-            storage_client = storage.Client()
-            storage_bucket = storage_client.bucket("tenadev")
-            self.cfg_blob = storage_bucket.blob("dgg-relay/config.json")
-            logging_client = google.cloud.logging.Client()
-            logging_client.setup_logging(log_level=logging.DEBUG)
         intents = Intents.default()
         intents.members = True
         intents.message_content = True
@@ -50,37 +40,29 @@ class CustomDiscBot(commands.Bot):
         Thread(target=self.dgg_thread).start()
         await self.add_cog(OwnerCog(self))
         await self.add_cog(PublicCog(self))
+        await self.tree.sync()
 
     def read_cfg(self):
         """Downloads and reads config file to set attributes"""
-        if self.cloud_sync:
-            self.cfg_blob.download_to_filename("config.json")
-            logger.info("Downloaded config file")
-        with open("config.json", "r") as cfg_file:
+        with open("config/config.json", "r") as cfg_file:
             cfg = json.loads(cfg_file.read())
         self.disc_auth, self.cfg_owner_id = cfg["disc_auth"], cfg["owner_id"]
         self.relays, self.phrases = cfg["relays"], cfg["phrases"]
-        self.emotes, self.live = cfg["emotes"], cfg["live"]
+        self.emotes = cfg["emotes"]
         self.user_prefs = {int(k): v for k, v in cfg["user_prefs"].items()}
-        self.live["channels"] = {int(k): v for k, v in self.live["channels"].items()}
 
     def save_cfg(self):
         """Saves attributes to the config file and uploads them"""
-        json_channels = {str(k): v for k, v in self.live["channels"].items()}
         to_json = {
             "disc_auth": self.disc_auth,
             "owner_id": self.cfg_owner_id,
             "relays": self.relays,
             "phrases": self.phrases,
             "user_prefs": {str(k): v for k, v in self.user_prefs.items()},
-            "live": {"id": self.live["id"], "channels": json_channels},
             "emotes": self.emotes,
         }
-        with open("config.json", "w") as cfg_file:
+        with open("config/config.json", "w") as cfg_file:
             json.dump(to_json, cfg_file, indent=2)
-        if self.cloud_sync:
-            self.cfg_blob.upload_from_filename("config.json")
-            logger.info("Uploaded config file")
 
     def dgg_to_disc(self, dgg_nick: str, dgg_txt: str):
         """Converts DGG emotes/links to Discord ones"""

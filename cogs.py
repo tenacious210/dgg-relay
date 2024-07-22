@@ -8,7 +8,7 @@ from discord.ext.commands import Bot, Cog
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-with open("config.json") as cfg_json:
+with open("config/config.json") as cfg_json:
     cfg = json.loads(cfg_json.read())
 
 owner_id = cfg["owner_id"]
@@ -193,47 +193,6 @@ class PublicCog(Cog):
             response = "No relays are active for this server."
         await log_reply(ctx, response, ephemeral=False)
 
-    live_notifications = app_commands.Group(
-        name="live-notifications",
-        description="Configure live notifications for Destiny",
-    )
-
-    @live_notifications.command(name="on")
-    async def live_notifications_on(self, ctx: Interaction):
-        """Enable live notifications for this server"""
-        relay_channel = await self.get_relay_channel(ctx)
-        if relay_channel not in self.bot.live["channels"].keys():
-            self.bot.live["channels"][relay_channel] = {"role": None}
-        self.bot.live["channels"][relay_channel]["enabled"] = True
-        self.bot.save_cfg()
-        response = f"Live notifications enabled for {ctx.guild.name}"
-        await log_reply(ctx, response, ephemeral=False)
-
-    @live_notifications.command(name="off")
-    async def live_notifications_off(self, ctx: Interaction):
-        """Disable live notifications for this server"""
-        relay_channel = await self.get_relay_channel(ctx)
-        if relay_channel not in self.bot.live["channels"].keys():
-            self.bot.live["channels"][relay_channel] = {"role": None}
-        self.bot.live["channels"][relay_channel]["enabled"] = False
-        self.bot.save_cfg()
-        response = f"Live notifications disabled for {ctx.guild.name}"
-        await log_reply(ctx, response, ephemeral=False)
-
-    @live_notifications.command(name="role")
-    @app_commands.describe(role="The role that will be pinged")
-    async def live_notifications_role(self, ctx: Interaction, role: Role):
-        """Set a role that gets pinged for live notifications"""
-        relay_channel = await self.get_relay_channel(ctx)
-        if relay_channel not in self.bot.live["channels"].keys():
-            self.bot.live["channels"][relay_channel] = {"enabled": True}
-        self.bot.live["channels"][relay_channel]["role"] = role.id
-        self.bot.save_cfg()
-        response = (
-            f'"<@&{role.id}>" will be pinged for live notifications in {ctx.guild.name}'
-        )
-        await log_reply(ctx, response, ephemeral=False)
-
     def check_prefs(self, disc_user):
         if disc_user not in self.bot.user_prefs.keys():
             self.bot.user_prefs[disc_user] = {"detect_presence": False, "ignores": []}
@@ -329,7 +288,7 @@ class PublicCog(Cog):
 
     @ignore.command(name="remove")
     @app_commands.describe(dgg_username="The user in DGG you want to unignore")
-    async def add_ignore(self, ctx: Interaction, dgg_username: str):
+    async def remove_ignore(self, ctx: Interaction, dgg_username: str):
         """Remove someone from your ignore list"""
         self.check_prefs(ctx.user.id)
         ignores = self.bot.user_prefs[ctx.user.id]["ignores"]

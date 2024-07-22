@@ -1,6 +1,4 @@
-dgg-bot
-discord.py
-requests
-tldextract
-google-cloud-storage
-google-cloud-logging
+dgg-bot==1.7.0
+discord.py==2.4.0
+requests==2.32.3
+tldextract==5.1.2
