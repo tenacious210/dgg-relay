@@ -14,8 +14,7 @@ from cogs import OwnerCog, PublicCog
 
 
 logging.basicConfig(level=logging.INFO)
-logging.getLogger("websocket").setLevel(logging.CRITICAL)
-logger = logging.getLogger(__name__)
+logging.getLogger("websocket").disabled = True
 
 
 class CustomDiscBot(commands.Bot):
@@ -33,7 +32,7 @@ class CustomDiscBot(commands.Bot):
             self.msg_queue.put(msg)
 
     async def setup_hook(self):
-        logger.info("Starting Discord bot")
+        logging.info("Starting Discord bot")
         app_info = await self.application_info()
         self.owner: User = app_info.owner
         Thread(target=self.dgg_chat.run_forever).start()
@@ -120,7 +119,7 @@ class CustomDiscBot(commands.Bot):
                             and phrase.lower() not in self.dgg_chat.users.keys()
                         ) or not presence_enabled
                         if not presence_check or msg.nick in prefs["ignores"]:
-                            logger.debug(
+                            logging.debug(
                                 f"Skipped relay to {user_id} due to preferences"
                             )
                             continue
@@ -128,24 +127,24 @@ class CustomDiscBot(commands.Bot):
                         add_message_to_queue(phrase_queue, user_id, phrase_message)
         for channel_id, r_messages in relay_queue.items():
             if not (channel := self.get_channel(channel_id)):
-                logger.warning(f"Channel {channel_id} wasn't found")
+                logging.warning(f"Channel {channel_id} wasn't found")
                 continue
             for message in r_messages:
                 msg_is_nsfw = any([n in message.lower() for n in ("nsfw", "nsfl")])
                 if msg_is_nsfw and not channel.is_nsfw():
-                    logger.debug(f"Skipped relay to {channel.guild} due to nsfw tag")
+                    logging.debug(f"Skipped relay to {channel.guild} due to nsfw tag")
                     continue
                 self.loop.create_task(channel.send(message[:-1]))
-                logger.debug(f"Relayed '{message[:-1]}' to {channel.guild}")
+                logging.debug(f"Relayed '{message[:-1]}' to {channel.guild}")
         for user_id, p_messages in phrase_queue.items():
             if not (user := self.get_user(user_id)):
-                logger.warning(f"User {user_id} wasn't found")
+                logging.warning(f"User {user_id} wasn't found")
                 continue
             for message in p_messages:
                 self.loop.create_task(user.send(message[:-1]))
-                logger.debug(f"Relayed '{message[:-1]}' to {user}")
+                logging.debug(f"Relayed '{message[:-1]}' to {user}")
 
 
 if __name__ == "__main__":
     main_bot = CustomDiscBot()
-    main_bot.run(main_bot.disc_auth, root_logger=True)
+    main_bot.run(main_bot.disc_auth, root_logging=True)
