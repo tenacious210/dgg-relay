@@ -6,7 +6,6 @@ from discord.app_commands import Choice
 from discord.ext.commands import Bot, Cog
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 with open("config/config.json") as cfg_json:
     cfg = json.loads(cfg_json.read())
