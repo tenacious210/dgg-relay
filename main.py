@@ -12,10 +12,10 @@ from discord.ext import commands
 
 from cogs import OwnerCog, PublicCog
 
+
+logging.basicConfig(level=logging.INFO)
 logging.getLogger("websocket").setLevel(logging.CRITICAL)
-logging.root.disabled = True
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 class CustomDiscBot(commands.Bot):
