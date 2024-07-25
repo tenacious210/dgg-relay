@@ -147,4 +147,4 @@ class CustomDiscBot(commands.Bot):
 
 if __name__ == "__main__":
     main_bot = CustomDiscBot()
-    main_bot.run(main_bot.disc_auth, root_logging=True)
+    main_bot.run(main_bot.disc_auth)
