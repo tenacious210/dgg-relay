@@ -19,10 +19,7 @@ logging.getLogger("websocket").disabled = True
 
 class CustomDiscBot(commands.Bot):
     def __init__(self):
-        intents = Intents.default()
-        intents.members = True
-        intents.message_content = True
-        super().__init__(command_prefix="/", intents=intents)
+        super().__init__(command_prefix="/", intents=Intents.default())
         self.read_cfg()
         self.msg_queue = Queue()
         self.dgg_chat = DGGChat()
