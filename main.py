@@ -15,6 +15,7 @@ from cogs import OwnerCog, PublicCog
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("websocket").disabled = True
+logging.getLogger("discord").setLevel(logging.WARNING)
 
 
 class CustomDiscBot(commands.Bot):
@@ -41,7 +42,7 @@ class CustomDiscBot(commands.Bot):
         await self.tree.sync()
 
     def read_cfg(self):
-        """Downloads and reads config file to set attributes"""
+        """Reads config file to set attributes"""
         with open("config/config.json", "r") as cfg_file:
             cfg = json.loads(cfg_file.read())
         self.disc_auth, self.cfg_owner_id = cfg["disc_auth"], cfg["owner_id"]
@@ -50,7 +51,7 @@ class CustomDiscBot(commands.Bot):
         self.user_prefs = {int(k): v for k, v in cfg["user_prefs"].items()}
 
     def save_cfg(self):
-        """Saves attributes to the config file and uploads them"""
+        """Saves attributes to the config file"""
         to_json = {
             "disc_auth": self.disc_auth,
             "owner_id": self.cfg_owner_id,
