@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import sys
 from queue import Queue
 from threading import Thread
 import time
@@ -12,9 +13,10 @@ from discord.ext import commands
 
 from cogs import OwnerCog, PublicCog
 
-
+sys.tracebacklimit = 0
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("websocket").disabled = True
+logging.getLogger("dgg-bot").disabled = True
 logging.getLogger("discord").setLevel(logging.WARNING)
 
 
